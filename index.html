@@ -1,0 +1,323 @@
+<!DOCTYPE html><html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>লেনদেন প্রবাসী — লগইন</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #141a2f;
+      --muted: #8aa0ff;
+      --text: #e8ecff;
+      --accent: #4f7cff;
+      --danger: #ff647c;
+      --success: #2ecc71;
+      --warning: #ffb020;
+      --border: #2a3154;
+      --soft: #1b2240;
+    }* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+  color: var(--text);
+  background: radial-gradient(1200px 800px at 10% 10%, #12173a 0%, transparent 60%),
+              radial-gradient(1000px 700px at 90% 90%, #0d1330 0%, transparent 60%),
+              var(--bg);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)) , var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
+  overflow: hidden;
+}
+
+.head {
+  padding: 28px 28px 16px;
+  display: grid;
+  gap: 6px;
+}
+.brand {
+  display: flex; align-items: center; gap: 12px;
+}
+.logo {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: conic-gradient(from 180deg, var(--accent), var(--muted));
+  filter: saturate(120%);
+  display: grid; place-items: center;
+  box-shadow: 0 6px 18px rgba(79,124,255,0.4);
+}
+.logo svg { width: 22px; height: 22px; }
+
+h1 {
+  font-size: 1.2rem; line-height: 1.2; margin: 0; font-weight: 700;
+  letter-spacing: .2px;
+}
+.sub {
+  color: #c8d0ff; opacity: .85; font-size: .86rem;
+}
+
+.body { padding: 8px 28px 24px; }
+
+form { display: grid; gap: 14px; }
+
+.field {
+  display: grid; gap: 8px;
+}
+label { font-size: .9rem; color: #cbd4ff; }
+.input {
+  display: grid; grid-template-columns: 44px 1fr 44px; align-items: center;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0)), var(--soft);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.input:focus-within { border-color: var(--muted); box-shadow: 0 0 0 3px rgba(138,160,255,0.15); }
+.input span.icon { display: grid; place-items: center; opacity: .85; }
+.input input {
+  width: 100%;
+  padding: 14px 4px;
+  font-size: 1rem;
+  background: transparent; border: 0; outline: none; color: var(--text);
+}
+.toggle-eye { cursor: pointer; user-select: none; }
+
+.row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+
+.checkbox {
+  display: inline-flex; align-items: center; gap: 10px; cursor: pointer;
+  font-size: .92rem; color: #cbd4ff;
+}
+.checkbox input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+.btn {
+  appearance: none; border: 0; outline: 0; cursor: pointer;
+  width: 100%; padding: 14px 16px; border-radius: 14px; font-weight: 700; font-size: 1rem;
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0)), var(--accent);
+  color: white;
+  box-shadow: 0 10px 30px rgba(79,124,255,0.35);
+  transition: transform .08s ease, filter .2s ease, opacity .2s ease;
+}
+.btn:hover { filter: brightness(1.05); }
+.btn:active { transform: translateY(1px); }
+.btn[disabled] { opacity: .6; cursor: not-allowed; box-shadow: none; }
+
+.meta {
+  text-align: center; color: #9fb0ff; font-size: .88rem; margin-top: 10px;
+}
+
+.footer { padding: 12px 20px 18px; background: rgba(20,26,47,0.6); border-top: 1px solid var(--border); text-align: center; font-size: .85rem; color: #aab6ff; }
+
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: 18px; background: var(--soft); color: var(--text);
+  border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  display: none; gap: 8px; align-items: center; z-index: 50;
+}
+.toast.show { display: inline-flex; }
+.toast.success { border-color: rgba(46,204,113,.6); }
+.toast.error { border-color: rgba(255,100,124,.6); }
+.toast .dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+
+.spinner {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.5); border-top-color: white;
+  animation: spin .8s linear infinite; display: inline-block; vertical-align: middle;
+  margin-inline-end: 8px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Small screens tune */
+@media (max-width: 420px) {
+  .head { padding: 22px 20px 12px; }
+  .body { padding: 8px 20px 20px; }
+  .footer { padding: 10px 14px 16px; }
+}
+
+  </style>
+</head>
+<body>
+  <main class="card" role="main" aria-label="Login form">
+    <header class="head">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M4 12h16" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <path d="M8 7h8M6 17h12" stroke="white" stroke-opacity=".75" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <h1>লেনদেন প্রবাসী</h1>
+          <div class="sub">আর এস ডিজিটাল পার্সোনাল ডাটা সার্ভার</div>
+        </div>
+      </div>
+    </header><section class="body">
+  <form id="loginForm" novalidate>
+    <div class="field">
+      <label for="username">ইউজারনেম</label>
+      <div class="input">
+        <span class="icon" aria-hidden="true">🧑</span>
+        <input id="username" name="username" type="text" inputmode="text" autocomplete="username" placeholder="আপনার ইউজারনেম" required />
+        <span class="icon" aria-hidden="true"></span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="password">পাসওয়ার্ড</label>
+      <div class="input">
+        <span class="icon" aria-hidden="true">🔒</span>
+        <input id="password" name="password" type="password" autocomplete="current-password" placeholder="আপনার পাসওয়ার্ড" required />
+        <span id="toggleEye" class="icon toggle-eye" title="Show/Hide">👁️</span>
+      </div>
+    </div>
+
+    <div class="row">
+      <label class="checkbox"><input type="checkbox" id="remember" /> লগইন মনে রাখুন</label>
+    </div>
+
+    <button id="loginBtn" class="btn" type="submit">
+      <span id="loginBtnText">লগইন</span>
+    </button>
+
+    <div class="meta">ইউজরনেম/পাসওর্য়াড নিকটস্থ ব্রাঞ্চ থেকে সংগ্রহ করুন</div>
+  </form>
+</section>
+
+<div class="footer">© <span id="year"></span> লেনদেন প্রবাসী</div>
+
+  </main>  <div id="toast" class="toast" role="status" aria-live="polite">
+    <span class="dot" style="color: var(--warning)"></span>
+    <span id="toastMsg">বার্তা</span>
+  </div>  <!-- Firebase (App + Analytics) -->  <script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js";
+    import { getDatabase, ref, child, get } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
+
+    // Your web app's Firebase configuration (provided)
+    const firebaseConfig = {
+      apiKey: "AIzaSyB_84BFLI-5iMOTwDUepXKUmDQgK4csZFk",
+      authDomain: "lenden-d2bc9.firebaseapp.com",
+      databaseURL: "https://lenden-d2bc9-default-rtdb.firebaseio.com",
+      projectId: "lenden-d2bc9",
+      storageBucket: "lenden-d2bc9.firebasestorage.app",
+      messagingSenderId: "258159170143",
+      appId: "1:258159170143:web:97e3f7acaa6d2fdaa001ea",
+      measurementId: "G-V6TRPK7XET"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const db = getDatabase(app);
+
+    // Helpers
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const toastEl = $('#toast');
+    const toastMsg = $('#toastMsg');
+    const loginForm = $('#loginForm');
+    const loginBtn = $('#loginBtn');
+    const loginBtnText = $('#loginBtnText');
+    const usernameEl = $('#username');
+    const passwordEl = $('#password');
+    const rememberEl = $('#remember');
+
+    const showToast = (msg, type='info') => {
+      toastMsg.textContent = msg;
+      toastEl.className = `toast show ${type === 'error' ? 'error' : type === 'success' ? 'success' : ''}`;
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => { toastEl.classList.remove('show'); }, 3000);
+    };
+
+    const setLoading = (isLoading) => {
+      if (isLoading) {
+        loginBtn.setAttribute('disabled', 'true');
+        loginBtnText.innerHTML = '<span class="spinner" aria-hidden="true"></span>প্রসেসিং…';
+      } else {
+        loginBtn.removeAttribute('disabled');
+        loginBtnText.textContent = 'লগইন';
+      }
+    };
+
+    // Show/Hide password
+    $('#toggleEye').addEventListener('click', () => {
+      const isPwd = passwordEl.type === 'password';
+      passwordEl.type = isPwd ? 'text' : 'password';
+    });
+
+    // Year
+    $('#year').textContent = new Date().getFullYear();
+
+    // Remember state on load
+    (function initRemember(){
+      try {
+        const savedUser = localStorage.getItem('lp_username') || '';
+        const savedRemember = localStorage.getItem('lp_remember') === 'true';
+        const already = localStorage.getItem('lp_logged_in') === 'true';
+        if (savedUser) usernameEl.value = savedUser;
+        rememberEl.checked = savedRemember;
+        // Auto-redirect if previously logged in
+        if (already) {
+          window.location.href = 'main.html';
+        }
+      } catch (e) { /* ignore storage issues */ }
+    })();
+
+    // Core login flow — reads from Realtime DB: user/{username}/password
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = (usernameEl.value || '').trim();
+      const password = (passwordEl.value || '').trim();
+
+      if (!username || !password) {
+        showToast('ইউজারনেম ও পাসওয়ার্ড দিন', 'error');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const rootRef = ref(db);
+        const safeKey = encodeURIComponent(username);
+        const snap = await get(child(rootRef, `user/${safeKey}/password`));
+        if (!snap.exists()) {
+          showToast('ইউজারনেম খুঁজে পাওয়া যায়নি', 'error');
+          setLoading(false);
+          return;
+        }
+        const storedPass = String(snap.val() ?? '');
+        if (storedPass === password) {
+          // Remember settings
+          try {
+            localStorage.setItem('lp_username', username);
+            localStorage.setItem('lp_remember', rememberEl.checked ? 'true' : 'false');
+            localStorage.setItem('lp_logged_in', rememberEl.checked ? 'true' : 'false');
+          } catch (e) {}
+          showToast('সফলভাবে লগইন হয়েছে', 'success');
+          // Small delay for UX
+          setTimeout(() => { window.location.href = 'main.html'; }, 350);
+        } else {
+          showToast('পাসওয়ার্ড সঠিক নয়', 'error');
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('সংযোগে সমস্যা হয়েছে। পরে চেষ্টা করুন', 'error');
+        setLoading(false);
+      }
+    });
+  </script>  <!--
+    ⚠️ নোট (সিকিউরিটি): প্রোডাকশনে প্লেইনটেক্সট পাসওয়ার্ড রাখা নিরাপদ নয়।
+    Firebase Authentication বা সার্ভার-সাইড হ্যাশ (যেমন bcrypt) বিবেচনা করুন।
+  --></body>
+</html>

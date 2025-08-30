@@ -260,7 +260,7 @@ function getValidSendRows(){
 
 function updateServiceAndTotals(){
   const rows = getValidSendRows();
-  const charge = rows.length * 5;
+  const charge = rows.length * 0;
   const total = rows.reduce((s,r)=>s+Number(r.amount||0), 0);
   $('#serviceCharge').value = charge;
   $('#totalAmount').value = total;
@@ -329,8 +329,8 @@ $('#sendNowBtn').addEventListener('click', async ()=>{
     let totalAmount = 0;
     // For each account: deduct (amount + 5), and push a transaction under Account/{acc}/transaction
     for (const r of rows){
-      const totalDeduct = Number(r.amount) + 5; // include per-account charge
-      totalCharge += 5;
+      const totalDeduct = Number(r.amount) + 0; // include per-account charge
+      totalCharge += 0;
       totalAmount += Number(r.amount);
       const accRef = ref(db, `Account/${r.account}/Balance`);
       await runTransaction(accRef, (currentValue)=>{
@@ -348,7 +348,7 @@ $('#sendNowBtn').addEventListener('click', async ()=>{
         number: target,
         account_number: r.account,
         amount: Number(r.amount),
-        charge: 5,
+        charge: 0,
         total_deducted: totalDeduct,
         date: dateStr,
         timestamp: ts

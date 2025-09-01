@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="bn">
+<head>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Add / Spend Balance — Lenden</title>
+  <style>
+    :root{
+      --bg: #07101a;
+      --card: rgba(20,26,47,0.9);
+      --muted: #9aa8d9;
+      --text: #e8ecff;
+      --accent: #4f7cff;
+      --danger: #ff4757;
+      --success: #2ecc71;
+      --border: rgba(255,255,255,0.08);
+      --soft: rgba(255,255,255,0.03);
+    }
+    html,body{
+      height:100%;margin:0;
+      font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;
+      background:linear-gradient(180deg,var(--bg),#02060a);
+      color:var(--text);
+      -webkit-font-smoothing:antialiased
+    }
+      /* শুধু বাংলা টেক্সটের জন্য */
+    :lang(bn) {
+      font-family: "Hind Siliguri", sans-serif;
+    }
+    .container{max-width:520px;margin:18px auto;padding:14px}
+
+    /* Wallet card */
+    .wallet{
+      background: var(--card);
+      border-radius:18px;
+      padding:18px;
+      text-align:center;
+      border:1px solid var(--border);
+      box-shadow:0 10px 25px rgba(0,0,0,0.35);
+      display:flex;flex-direction:column;gap:12px;align-items:center
+    }
+    .wallet .title{font-size:13px;color:var(--muted);letter-spacing:0.3px}
+    .wallet .amount{font-weight:800;font-size:42px}
+    .wallet .btns{display:flex;gap:10px;width:100%;justify-content:center;flex-wrap:wrap}
+
+    /* buttons */
+    .btn{
+      padding:10px 14px;border-radius:12px;border:none;
+      background:var(--accent);color:var(--text);
+      font-weight:700;cursor:pointer;min-width:120px;
+      box-shadow:0 6px 15px rgba(0,0,0,0.25);
+      transition:transform .15s
+    }
+    .btn:active{transform:translateY(1px)}
+    .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text);font-weight:600}
+    .btn.danger{background:linear-gradient(90deg,var(--danger),#ff6b81)}
+
+    /* panel */
+    .form-panel{margin-top:12px;background:var(--card);padding:12px;border-radius:12px;border:1px solid var(--border);display:none}
+    .form-panel.active{display:block}
+    .form-row{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap;justify-content:center}
+    select,input[type=number],input[type=date]{
+      padding:10px;border-radius:10px;border:1px solid var(--border);
+      background:var(--soft);color:var(--text);min-width:160px
+    }
+    .input-amount{flex:1;min-width:140px}
+
+    /* history */
+    .history{margin-top:16px;background:var(--card);padding:12px;border-radius:12px;border:1px solid var(--border)}
+    .history .controls{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px}
+    .small{font-size:13px;color:var(--muted)}
+    .table{width:100%;border-collapse:collapse}
+    .table th,.table td{padding:8px 6px;text-align:left;font-size:14px;border-bottom:1px dashed rgba(255,255,255,0.05)}
+    .table th{font-weight:700;color:var(--muted)}
+
+    /* row styles */
+    tr.tr-add td{background:linear-gradient(90deg, rgba(46,204,113,0.06), transparent);}
+    tr.tr-spend td{background:linear-gradient(90deg, rgba(255,71,87,0.06), transparent);}
+    .row-add{color:var(--success);font-weight:700}
+    .row-spend{color:var(--danger);font-weight:700}
+
+    .summary{margin-top:10px;display:flex;justify-content:space-between;align-items:center;padding-top:8px;color:var(--muted);flex-wrap:wrap}
+
+    /* spinner */
+    .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.12);border-top-color:var(--text);border-radius:50%;animation:spin 1s linear infinite;vertical-align:middle}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* responsive */
+    @media(max-width:520px){
+      .wallet .amount{font-size:34px}
+      .form-row{flex-direction:column;align-items:stretch}
+      .summary{flex-direction:column;align-items:flex-start;gap:6px}
+      .btn{min-width:110px;padding:9px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Wallet -->
+    <div class="wallet">
+      <div class="title">Total Wallet Balance</div>
+      <div class="amount" id="totalBalance">৳ 0</div>
+      <div class="btns">
+        <button id="btnAdd" class="btn">টাকা যোগ</button>
+        <button id="btnSpend" class="btn danger">খরচ করুন</button>
+      </div>
+    </div>
+
+    <!-- Action Panel -->
+    <div id="actionPanel" class="form-panel">
+      <div class="form-row">
+        <select id="selectAccount">
+          <option value="">-- লোড হচ্ছে --</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <input id="amountInput" class="input-amount" type="number" min="0" step="0.01" placeholder="পরিমাণ (৳)" />
+      </div>
+      <div class="form-row">
+        <button id="submitBtn" class="btn">যোগ করুন</button>
+        <button id="cancelBtn" class="btn ghost">বাতিল</button>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="history">
+      <div class="controls">
+        <div class="small">মোট <span id="countShown">0</span> টি হিস্টরি</div>
+      </div>
+
+      <table class="table" id="historyTable">
+        <thead>
+          <tr>
+            <th>তারিখ</th><th>একাউন্ট</th><th>ধরন</th><th>পরিমাণ</th><th>আগের</th><th>এখন</th>
+          </tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+
+      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+        <input type="date" id="fromDate" />
+        <input type="date" id="toDate" />
+      </div>
+      <button style="margin-top:10px;" id="applyFilter" class="btn ghost">Apply</button>
+      <button id="clearFilter" class="btn ghost">Clear</button>
+
+      <div class="summary">
+        <div class="small">মোট লেনদেন: <span id="totalItems">0</span></div>
+        <div class="small">নেট চার্য: <span id="netChange">৳ 0</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase + Script -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+    import { getDatabase, ref, onValue, get, set, push } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
+
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyB_84BFLI-5iMOTwDUepXKUmDQgK4csZFk",
+      authDomain: "lenden-d2bc9.firebaseapp.com",
+      databaseURL: "https://lenden-d2bc9-default-rtdb.firebaseio.com",
+      projectId: "lenden-d2bc9",
+      storageBucket: "lenden-d2bc9.firebasestorage.app",
+      messagingSenderId: "258159170143",
+      appId: "1:258159170143:web:97e3f7acaa6d2fdaa001ea",
+      measurementId: "G-V6TRPK7XET"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // elements
+    const totalBalanceEl = document.getElementById('totalBalance');
+    const btnAdd = document.getElementById('btnAdd');
+    const btnSpend = document.getElementById('btnSpend');
+    const actionPanel = document.getElementById('actionPanel');
+    const selectAccount = document.getElementById('selectAccount');
+    const amountInput = document.getElementById('amountInput');
+    const submitBtn = document.getElementById('submitBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const historyBody = document.getElementById('historyBody');
+    const totalItemsEl = document.getElementById('totalItems');
+    const netChangeEl = document.getElementById('netChange');
+    const countShown = document.getElementById('countShown');
+    const fromDate = document.getElementById('fromDate');
+    const toDate = document.getElementById('toDate');
+    const applyFilter = document.getElementById('applyFilter');
+    const clearFilter = document.getElementById('clearFilter');
+
+    let mode = 'add';
+    let accounts = {};
+    let historyList = [];
+
+    // helpers
+    function formatCurrency(n){
+      const v = Number(n||0);
+      const minFrac = (Math.abs(v) % 1 !== 0) ? 2 : 0;
+      return '৳ ' + v.toLocaleString(undefined, { minimumFractionDigits: minFrac, maximumFractionDigits: 2 });
+    }
+    function todayDdMmYyyy(){
+      const d=new Date();
+      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    }
+    function parseDdMmYyyyToDate(s){
+      if(!s) return null;
+      const parts=s.split('/');
+      if(parts.length!==3) return null;
+      return new Date(+parts[2], +parts[1]-1, +parts[0]);
+    }
+
+    // populate accounts
+    function populateAccounts(snapshotVal){
+      accounts = snapshotVal || {};
+      selectAccount.innerHTML = '';
+      const keys = Object.keys(accounts);
+      if(keys.length === 0){
+        const opt = document.createElement('option'); opt.value=''; opt.textContent = '-- কোন একাউন্ট নেই --'; opt.disabled = true;
+        selectAccount.appendChild(opt);
+        totalBalanceEl.textContent = formatCurrency(0);
+        return;
+      }
+      let total = 0;
+      keys.forEach(key=>{
+        const bal = parseFloat(accounts[key]?.Balance || 0) || 0;
+        total += bal;
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = `${key} — ${formatCurrency(bal)}`;
+        selectAccount.appendChild(opt);
+      });
+      totalBalanceEl.textContent = formatCurrency(total);
+    }
+
+    // realtime listeners
+    onValue(ref(db, 'Account'), snap => populateAccounts(snap.val()));
+
+    onValue(ref(db, 'history'), snap => {
+      const val = snap.val() || {};
+      historyList = Object.keys(val).map(k => ({ _key:k, ...val[k] }));
+      historyList.sort((a,b) => (b._ts||0) - (a._ts||0));
+      renderHistory();
+    });
+
+    function renderHistory(){
+      let from = fromDate.value ? new Date(fromDate.value) : null;
+      let to = toDate.value ? new Date(toDate.value) : null;
+      if(to) to.setHours(23,59,59,999);
+
+      const filtered = historyList.filter(item => {
+        const d = parseDdMmYyyyToDate(item.date);
+        if(!d) return true;
+        if(from && d < from) return false;
+        if(to && d > to) return false;
+        return true;
+      });
+
+      historyBody.innerHTML = '';
+      let totalItems = 0, net = 0;
+      for(const it of filtered){
+        const tr = document.createElement('tr');
+        const type = it.type || (it['add balance'] ? 'add' : 'spend');
+        const amt = Number(it['add balance'] || it['spend amount'] || it.amount || 0);
+        const sign = (type === 'add') ? '+' : '-';
+        tr.className = (type === 'add') ? 'tr-add' : 'tr-spend';
+
+        tr.innerHTML = `
+          <td>${it.date||''}</td>
+          <td>${it.account||''}</td>
+          <td>${(sign==='+')?'যোগ':'খরচ'}</td>
+          <td><span class="${sign==='+'?'row-add':'row-spend'}">${sign} ${Math.abs(amt)}</span></td>
+          <td>${it['old balance']!=null?formatCurrency(it['old balance']):''}</td>
+          <td>${it['new balance']!=null?formatCurrency(it['new balance']):''}</td>`;
+        historyBody.appendChild(tr);
+        totalItems++; net += (sign==='+')?amt:-amt;
+      }
+      totalItemsEl.textContent = totalItems;
+      countShown.textContent = totalItems;
+      netChangeEl.textContent = formatCurrency(net);
+    }
+
+    // UI events
+    btnAdd.addEventListener('click', ()=> {
+      mode = 'add';
+      actionPanel.classList.add('active');
+      submitBtn.textContent = 'যোগ করুন';
+      submitBtn.classList.remove('danger');
+      amountInput.value = '';
+    });
+    btnSpend.addEventListener('click', ()=> {
+      mode = 'spend';
+      actionPanel.classList.add('active');
+      submitBtn.textContent = 'খরচ নিশ্চিত';
+      submitBtn.classList.add('danger');
+      amountInput.value = '';
+    });
+    cancelBtn.addEventListener('click', ()=> actionPanel.classList.remove('active'));
+
+    applyFilter.addEventListener('click', ()=> renderHistory());
+    clearFilter.addEventListener('click', ()=>{ fromDate.value=''; toDate.value=''; renderHistory(); });
+
+    // submit
+    submitBtn.addEventListener('click', async ()=>{
+      const acc = selectAccount.value;
+      const amt = parseFloat(amountInput.value||0);
+      if(!acc){ alert('একাউন্ট সিলেক্ট করুন'); return; }
+      if(!amt || amt<=0){ alert('একটি বৈধ পরিমাণ লিখুন'); return; }
+
+      const oldHtml = submitBtn.innerHTML;
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner"></span> প্রসেসিং...';
+
+      try{
+        const accRef = ref(db, `Account/${acc}/Balance`);
+        const snap = await get(accRef);
+        let oldBal = parseFloat(snap.val()||0)||0;
+        let newBal;
+        const historyEntry = {
+          date: todayDdMmYyyy(),
+          account: acc,
+          _iso: new Date().toISOString(),
+          _ts: Date.now(),
+          type: mode
+        };
+
+        if(mode==='add'){
+          newBal = oldBal+amt;
+          await set(accRef,newBal);
+          historyEntry['add balance']=amt;
+        }else{
+          newBal = oldBal-amt;
+          await set(accRef,newBal);
+          historyEntry['spend amount']=amt;
+        }
+        historyEntry['old balance']=oldBal;
+        historyEntry['new balance']=newBal;
+
+        // শুধু Firebase এ push করবে, লোকালি add করবে না
+        await push(ref(db,'history'),historyEntry);
+
+        actionPanel.classList.remove('active');
+        amountInput.value='';
+      }catch(err){
+        alert('Error: '+err.message);
+      }finally{
+        submitBtn.disabled=false;
+        submitBtn.innerHTML=oldHtml;
+      }
+    });
+  </script>
+</body>
+</html>

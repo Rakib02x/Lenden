@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>লেনদেন প্রবাসী — আর এস ডিজিটাল পার্সোনাল ডাটা সার্ভার</title>
+  <link rel="stylesheet" href="style.css">
+  
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet" href="style.css" >
+  
+</head>
+<body>
+  <div class="container">
+    <section id="section-profile" class="grid cols-2">
+      <div class="card">
+        <div class="row between">
+          <div>
+            <div class="title">লেনদেন প্রবাসী</div>
+            <div class="subtitle">আর এস ডিজিটাল পার্সোনাল ডাটা সার্ভার</div>
+          </div>
+          <div class="pill">Verified</div>
+        </div>
+        <div style="height:10px"></div>
+        <div class="row between">
+          <div>
+            <div class="muted">মোট ব্যালেন্স</div>
+            <div id="totalBalance" class="balance mono">0000</div>
+          </div>
+          <button id="addbalance" class="btn primary">টাকা যোগ/বিটুবি</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="title">জরুরি সেবা সূমহ্</div>
+        <div class="subtitle">নিচের অপশন থেকে যেকোনটি নির্বাচন করুন</div>
+        <div style="height:8px"></div>
+        <div class="row" style="flex-wrap:wrap; gap:8px">
+          <button id="btnAllTxns" class="btn">সকল ট্রানজেকশন</button>
+          <button id="btnSettings" class="btn ghost">সেটিংস</button>
+          <button id="help" class="btn ghost">হেল্প</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="section-accounts" style="margin-top: 15px;" class="card">
+      <div class="row between" style="margin-bottom: 10px;" >
+        <div class="title">একাউন্ট সমূহ</div>
+        <span class="badge" id="accountCount">0 একাউন্ট</span>
+      </div>
+      <div class="list" id="accountsList"></div>
+    </section>
+
+    <section id="section-send" class="card hidden">
+      <div class="title">টাকা পাঠান</div>
+      <div class="grid" style="margin-top:10px">
+        <div>
+          <label>যে নাম্বারে টাকা পাঠাবেন (বিকাশ/নগদ ইত্যাদি)</label>
+          <input id="targetNumber" placeholder="01XXXXXXXXX" inputmode="numeric" pattern="[0-9]*" />
+        </div>
+      </div>
+
+      <div style="height:10px"></div>
+      <div class="row between">
+        <div class="subtitle">একাধিক একাউন্ট থেকে এমাউন্ট দিন</div>
+        <button id="addRowBtn" class="btn">+ আরেকটি একাউন্ট</button>
+      </div>
+      <div style="height:6px"></div>
+
+      <div id="sendRows" class="list"></div>
+
+      <div style="height:10px"></div>
+      <div class="grid" style="grid-template-columns:1fr 1fr; gap:10px">
+        <div>
+          <label>সার্ভিস চার্জ (অটো)</label>
+          <input id="serviceCharge" class="mono" readonly value="0" />
+          <div class="muted" style="font-size:12px">প্রতি একাউন্টে ৫ টাকা</div>
+        </div>
+        <div>
+          <label>মোট এমাউন্ট (চার্জ ছাড়া)</label>
+          <input id="totalAmount" class="mono" readonly value="0" />
+        </div>
+      </div>
+
+      <div style="height:14px"></div>
+      <div>
+        <label>ডিসপ্লে (কপি করার জন্য)</label>
+        <div id="displayBox" class="copy-area mono"></div>
+        <div class="row" style="margin-top:8px">
+          <button id="copyDisplayBtn" class="btn">কপি</button>
+          <button id="sendNowBtn" class="btn primary">পাঠান</button>
+          <button id="backHomeBtn" class="btn ghost">পেছনে যান</button>
+        </div>
+        <div id="sendMsg" class="muted" style="margin-top:8px"></div>
+      </div>
+    </section>
+
+    <section id="section-transactions" class="card hidden">
+      <div class="row between">
+        <div class="title">ট্রানজেকশনের বিবরণ (প্রতি একাউন্ট)</div>
+        <span class="badge" id="txnCount">0</span>
+      </div>
+
+      <div class="toolbar" style="margin-top:10px">
+        <div>
+          <label>শুরুর তারিখ</label>
+          <input type="date" id="dateFrom" />
+        </div>
+        <div>
+          <label>শেষ তারিখ</label>
+          <input type="date" id="dateTo" />
+        </div>
+        <div>
+          <label>শর্ট/সার্চ</label>
+          <input id="searchBox" placeholder="নাম্বার/একাউন্ট/এমাউন্ট" />
+        </div>
+        <div style="display:flex; align-items:flex-end">
+          <button id="applyFilterBtn" class="btn">ফিল্টার</button>
+        </div>
+      </div>
+
+      <div style="height:10px"></div>
+      <div style="overflow:auto">
+        <table class="table" id="txnTable">
+          <thead>
+            <tr>
+              <th>তারিখ</th>
+              <th>একাউন্ট</th>
+              <th>নম্বর</th>
+              <th>এমাউন্ট</th>
+              <th>চার্জ</th>
+              <th>মোট কাটা</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div style="height:10px"></div>
+      <div class="row between">
+        <div class="subtitle">সংক্ষিপ্ত হিসাব</div>
+        <div id="summary" class="badge">মোট: 0 টি | টাকা: 0 | চার্জ: 0</div>
+      </div>
+    </section>
+
+    <section id="section-alltransactions" class="card hidden">
+      <div class="row between">
+        <div class="title">সমস্ত লেনদেন ডিটেলস</div>
+        <span class="badge" id="allTxnCount">0</span>
+      </div>
+
+      <div class="toolbar" style="margin-top:10px">
+        <div>
+          <label>শুরুর তারিখ</label>
+          <input type="date" id="allDateFrom" />
+        </div>
+        <div>
+          <label>শেষ তারিখ</label>
+          <input type="date" id="allDateTo" />
+        </div>
+        <div>
+          <label>সার্চ</label>
+          <input id="allSearchBox" placeholder="নাম্বার/এমাউন্ট/বর্ণনা" />
+        </div>
+        <div style="display:flex; align-items:flex-end">
+          <button id="applyAllFilterBtn" class="btn">ফিল্টার</button>
+        </div>
+      </div>
+
+      <div style="height:10px"></div>
+      <div style="overflow:auto">
+        <table class="table" id="allTxnTable">
+          <thead>
+            <tr>
+              <th>তারিখ</th>
+              <th>নম্বর</th>
+              <th>টাকা (মোট)</th>
+              <th>ব্রেকডাউন</th>
+              <th>চার্জ</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div style="height:10px"></div>
+      <div class="row between">
+        <div class="subtitle">সংক্ষিপ্ত হিসাব (ফিল্টারকৃত)</div>
+        <div id="allSummary" class="badge">মোট: 0 টি | টাকা: 0 | চার্জ: 0</div>
+      </div>
+    </section>
+
+  </div>
+
+  <div id="settingsPanel" class="settings-panel hidden">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+      <div style="font-weight:700">সেটিংস</div>
+      <button id="closeSettings" class="btn ghost">আপ</button>
+    </div>
+    <div style="height:8px"></div>
+    <div>
+      <label>থিম</label>
+      <div class="row">
+        <button id="themeDefault" class="btn">ডার্ক</button>
+        <button id="themeLight" class="btn">লাইট</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="nav">
+      <button data-tab="home" class="nbtn active" id="navHome">হোম পেইজ</button>
+      <button data-tab="send" class="nbtn" id="navSend">টাকা পাঠান</button>
+      <button data-tab="txns" class="nbtn" id="navTxns">ট্রানজেকশন</button>
+    </div>
+  </div>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>

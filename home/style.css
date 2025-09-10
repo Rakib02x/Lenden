@@ -102,7 +102,7 @@ body.light .subtitle { color: var(--muted); }
 body.light .pill { background: #f0f4f9; color: var(--muted); }
 
 .muted { color: var(--muted); }
-.balance { font-size: 36px; font-weight: 900; letter-spacing: .5px; }
+.balance { font-size: 27px; font-weight: 900; letter-spacing: .5px; }
 
 .badge {
   font-size: 12px;

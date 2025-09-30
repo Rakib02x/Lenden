@@ -28,11 +28,12 @@
       </div>
 
       <div class="card">
-        <div class="title">জরুরি সেবা সূমহ্</div>
+        <div class="title">সকল সেবা সূমহ্</div>
         <div class="subtitle">নিচের অপশন থেকে যেকোনটি নির্বাচন করুন</div>
         <div style="height:8px"></div>
         <div class="row" style="flex-wrap:wrap; gap:8px">
-          <button id="btnAllTxns" class="btn">সকল ট্রানজেকশন</button>
+          <button id="btnAllTxns" class="btn">রিসিপ গ্রহন</button>
+          <button id="sim" class="btn ghost">সিম কার্ড</button>
           <button id="btnSettings" class="btn ghost">সেটিংস</button>
           <button id="help" class="btn ghost">হেল্প</button>
         </div>
@@ -70,7 +71,7 @@
         <div>
           <label>সার্ভিস চার্জ (অটো)</label>
           <input id="serviceCharge" class="mono" readonly value="0" />
-          <div class="muted" style="font-size:12px">প্রতি একাউন্টে ৫ টাকা</div>
+          <div class="muted" style="font-size:12px"></div>
         </div>
         <div>
           <label>মোট এমাউন্ট (চার্জ ছাড়া)</label>
@@ -126,6 +127,8 @@
               <th>এমাউন্ট</th>
               <th>চার্জ</th>
               <th>মোট কাটা</th>
+              <th>আগের ব্যালেন্স</th>
+              <th>এখন ব্যালেন্স</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -169,10 +172,8 @@
           <thead>
             <tr>
               <th>তারিখ</th>
-              <th>নম্বর</th>
-              <th>টাকা (মোট)</th>
-              <th>ব্রেকডাউন</th>
-              <th>চার্জ</th>
+              <th>ডিসপ্ল</th>
+                            
             </tr>
           </thead>
           <tbody></tbody>

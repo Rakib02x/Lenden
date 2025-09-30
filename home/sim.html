@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>সিম কার্ড একটিভ সিস্টেম: Admin</title>
+    <style>
+        /* Base and Variables */
+        :root {
+            --bg: #0b1020;
+            --card: #141a2f;
+            --muted: #a0accc; /* Slightly softer muted color */
+            --text: #e8ecff;
+            --accent: #4f7cff;
+            --danger: #ff647c;
+            --success: #2ecc71;
+            --warning: #ffb020;
+            --border: #2a3154;
+            --soft: #1b2240;
+            --radius: 12px;
+            /* CUSTOM COLORS FOR CIRCLE PROGRESS */
+            --progress-green: var(--success); /* > 15 days */
+            --progress-yellow: var(--warning); /* 7 to 15 days */
+            --progress-red-mild: #ff9955; /* 3 to 7 days */
+            --progress-red-danger: var(--danger); /* <= 3 days or expired */
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        /* Global Styles */
+        html, body {
+            height: 100%;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .app {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 16px 12px 88px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card); /* Solid card background for better contrast */
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px; /* Increased padding */
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4); /* Stronger shadow */
+            margin-bottom: 20px; /* Space between cards */
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .brand {
+            font-weight: 800; /* Bolder brand name */
+            font-size: 24px;
+            color: var(--text); /* Primary color for brand */
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: var(--muted);
+            margin-left: auto;
+        }
+
+        /* Profile Stats */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr); /* 4 columns */
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .stat {
+            padding: 15px;
+            border-radius: 10px;
+            background: var(--soft); /* Background for stats */
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .stat:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .stat .num {
+            font-size: 22px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .stat .label {
+            font-size: 11px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Stat Colors */
+        .stat-active .num { color: var(--success); }
+        .stat-inactive .num { color: var(--danger); }
+        .stat-warning .num { color: var(--warning); }
+        .stat-danger .num { color: var(--danger); }
+
+        /* Buttons */
+        .full-btn {
+            display: block;
+            width: 100%;
+            margin-top: 15px;
+            padding: 14px;
+            border-radius: 10px;
+            background: linear-gradient(90deg, var(--accent), #6b97ff);
+            border: none;
+            color: var(--text);
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.1s;
+        }
+        .full-btn:hover {
+            background: linear-gradient(90deg, #6b97ff, var(--accent));
+        }
+        .full-btn:active {
+            transform: scale(0.99);
+        }
+
+        /* Modal / Form */
+        .modal {
+            position: fixed;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(2, 6, 23, 0.75); /* Darker overlay */
+            padding: 12px;
+            z-index: 60;
+            backdrop-filter: blur(4px); /* Blur effect */
+        }
+
+        .modal.hidden {
+            display: none;
+        }
+
+        .modal-card {
+            width: 100%;
+            max-width: 520px;
+            border-radius: 16px; /* Larger radius */
+            padding: 20px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .form-row {
+            display: flex;
+            gap: 12px; /* Increased gap */
+            margin-bottom: 12px;
+        }
+
+        .form-row .field {
+            flex: 1;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px; /* Increased padding */
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--soft);
+            color: var(--text);
+            font-size: 15px;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: var(--card);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 10px 18px; /* Wider padding */
+            border-radius: 8px;
+            border: 0;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn.ghost {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--muted);
+        }
+        .btn.ghost:hover {
+            border-color: var(--muted);
+        }
+
+        .btn.primary {
+            background: var(--accent);
+            color: var(--text);
+        }
+        .btn.primary:hover {
+            opacity: 0.9;
+        }
+
+        /* Customers List */
+        .list {
+            margin-top: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px; /* Reduced gap */
+        }
+
+        .customer {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            padding: 15px;
+            border-radius: 12px;
+            background: var(--soft);
+            border: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+        .customer:hover {
+            background: #202a4a; /* Slightly lighter on hover */
+        }
+
+        .left {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .meta {
+            min-width: 160px;
+        }
+
+        .name {
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 3px;
+        }
+
+        .sim {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        /* Circular Progress */
+        .progress-wrap {
+            width: 72px;
+            height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .progress-text {
+            font-size: 14px; /* Larger font */
+            font-weight: 700;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--text);
+        }
+
+        /* Actions */
+        .actions {
+            margin-left: auto;
+            display: flex;
+            gap: 8px;
+        }
+
+        .small {
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        /* Stock & History Table */
+        .stocks {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* 3 columns for stocks */
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .stock-item {
+            padding: 15px;
+            border-radius: 10px;
+            background: var(--card);
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+        .stock-item > div:first-child {
+            font-weight: 700;
+            font-size: 16px;
+        }
+        .stock-item .note {
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        /* **History Table Responsiveness Update** */
+        .history-table-container {
+            /* Makes the container scrollable on smaller screens */
+            width: 100%;
+            overflow-x: auto; 
+            margin-top: 15px;
+        }
+
+        table {
+            /* Ensure table fits inside container and is full width on desktop */
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--card);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            min-width: 600px; /* Prevents it from getting too narrow on mobile, enabling scroll */
+        }
+
+        th, td {
+            padding: 12px 10px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            white-space: nowrap; /* Prevents text from wrapping */
+        }
+
+        thead th {
+            background: var(--soft); /* Header background */
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        /* End History Table Update */
+
+
+        /* History Summary */
+        .history-summary {
+            margin-top: 15px;
+            padding: 15px;
+            background: var(--soft);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+        .history-summary div {
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        .history-summary strong {
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            gap: 0;
+            justify-content: space-around;
+            padding: 10px 8px 12px; /* Adjusted padding */
+            background: var(--card); /* Solid background for navbar */
+            border-top: 1px solid var(--border);
+            box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.4);
+            z-index: 50;
+        }
+
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 8px 6px;
+            color: var(--muted);
+            font-size: 12px;
+            cursor: pointer;
+            transition: color 0.2s, transform 0.1s;
+        }
+        .tab:hover {
+            color: var(--text);
+        }
+
+        .tab.active {
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        /* Responsive */
+        @media(min-width: 720px) {
+            .app {
+                padding: 24px 18px 120px;
+            }
+            .stats {
+                gap: 15px;
+            }
+        }
+        @media(max-width: 500px) {
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+
+        /* Small Helpers */
+        .note {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .badge {
+            padding: 6px 8px;
+            border-radius: 999px;
+            font-weight: 700;
+        }
+
+        .notify {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 72px;
+            padding: 10px 18px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: var(--text);
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            z-index: 70;
+            display: none;
+        }
+
+        /* Icons (assuming you'd use an icon library in a real app) */
+        .icon {
+            display: inline-block;
+            margin-right: 4px;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <header>
+        <div class="brand">সিম কার্ড একটিভ সিস্টেম</div>
+        <div class="subtitle">— Admin</div>
+    </header>
+
+    <div id="home-section" class="card-section">
+        <div class="card">
+            <h3 style="margin:0 0 10px 0;">সিম স্ট্যাটাস</h3>
+            <div class="stats">
+                <div class="stat stat-active">
+                    <div class="num" id="count-active">0</div>
+                    <div class="label">একটিভ</div>
+                </div>
+                <div class="stat stat-inactive">
+                    <div class="num" id="count-inactive">0</div>
+                    <div class="label">ইন-একটিভ</div>
+                </div>
+                <div class="stat stat-warning">
+                    <div class="num" id="count-warning">0</div>
+                    <div class="label">মেয়াদ 7 দিনের নিচে</div>
+                </div>
+                <div class="stat stat-danger">
+                    <div class="num" id="count-danger">0</div>
+                    <div class="label">3 দিনের নিচে</div>
+                </div>
+            </div>
+            <button class="full-btn" id="open-add">নতুন সিম একটিভ</button>
+        </div>
+
+        <div class="card">
+            <h3 style="margin:0 0 10px 0;">কাস্টমার লিস্ট</h3>
+            <div class="list" id="customers">
+                </div>
+        </div>
+
+    </div>
+
+    <div id="stock-section" class="card-section" style="display: none;">
+        <div class="card">
+            <h3 style="margin:0 0 10px 0;">স্টক ম্যানেজমেন্ট</h3>
+
+            <div class="stocks" id="stocks">
+                </div>
+
+            <h4 style="margin: 20px 0 10px 0;">স্টক যোগ করুন</h4>
+            <div class="form-row">
+                <div class="field">
+                    <label>সিম সিলেকশন</label>
+                    <select id="add-sim-type">
+                        <option>Yes SIM</option>
+                        <option>Hotlink SIM</option>
+                        <option>DiGi SIM</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>পরিমাণ</label>
+                    <div style="display:flex;gap:8px;align-items:flex-end">
+                        <input type="number" id="add-qty" placeholder="সংখ্যা" style="flex:1" min="1"/>
+                        <button class="btn primary" id="add-stock" style="min-width:100px;">স্টক যোগ</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="history-section" class="card-section" style="display: none;">
+        <div class="card">
+            <h3 style="margin:0 0 10px 0;">হিস্টোরি</h3>
+
+            <div class="form-row" style="margin-bottom: 0;">
+                <div class="field">
+                    <label>শুরুর তারিখ</label>
+                    <input type="date" id="from-date" />
+                </div>
+                <div class="field">
+                    <label>শেষের তারিখ</label>
+                    <input type="date" id="to-date" />
+                </div>
+            </div>
+            <div class="form-actions" style="margin-top: 10px;">
+                <button class="btn ghost" id="clear-filter">ক্লিয়ার</button>
+                <button class="btn primary" id="filter-history">ফিল্টার</button>
+            </div>
+
+            <div class="history-table-container">
+                <table id="history-table">
+                    <thead>
+                        <tr>
+                            <th>কাস্টমার</th>
+                            <th>সিম কার্ড</th>
+                            <th>মূল্য (RM)</th>
+                            <th>স্ট্যাটাস</th>
+                            <th>একটিভ তারিখ</th>
+                            <th>মেয়াদ শেষ</th> <th>মেয়াদ</th>
+                            
+                            
+                            
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+            <div class="history-summary">
+                <h4 style="margin: 0 0 10px 0; color: var(--accent);">সংক্ষিপ্ত বিবরণী (Summary)</h4>
+                <div>মোট সেল: <strong id="summary-total-price">000</strong> RM</div>
+                <div>Yes SIM: <strong id="summary-yes-sim">0</strong> টি</div>
+                <div>Hotlink SIM: <strong id="summary-hotlink-sim">0</strong> টি</div>
+                <div>DiGi SIM: <strong id="summary-digi-sim">0</strong> টি</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal hidden" id="modal">
+        <div class="modal-card">
+            <h3 style="margin:0 0 15px 0">নতুন সিম একটিভ / রিনিউ করুন</h3>
+            <div>
+                <div class="form-row">
+                    <div class="field">
+                        <label>কাস্টমারের নাম</label>
+                        <input id="cust-name" placeholder="নাম লিখুন" />
+                    </div>
+                    <div class="field">
+                        <label>সিম সিলেকশন</label>
+                        <select id="sim-type">
+                            <option>Yes SIM</option>
+                            <option>Hotlink SIM</option>
+                            <option>DiGi SIM</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="field">
+                        <label>কোন তারিখে একটিভ করা হচ্ছে</label>
+                        <input type="date" id="active-date" />
+                    </div>
+                    <div class="field">
+                        <label>মেয়াদ (দিন)</label>
+                        <input type="number" id="duration" value="30" min="1" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="field">
+                        <label>দাম (BDT)</label>
+                        <input type="number" id="price" value="0" />
+                    </div>
+                    <div class="field" style="display:flex; flex-direction:column; justify-content:flex-end;">
+                        <label style="opacity:0;">&nbsp;</label>
+                        <div class="form-actions" style="margin-top:0;">
+                            <button class="btn ghost" id="cancel">Cancel</button>
+                            <button class="btn primary" id="save-cust">Save</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="note">স্টক চেক করা হবে। স্টক না থাকলে সেভ হবে না।</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="notify" id="notify" style="display:none;"></div>
+
+    <div class="bottom-nav">
+        <div class="tab active" data-target="home-section">
+            <span class="icon">🏠</span> হোম
+        </div>
+        <div class="tab" data-target="stock-section">
+            <span class="icon">📦</span> স্টক ম্যানেজমেন্ট
+        </div>
+        <div class="tab" data-target="history-section">
+            <span class="icon">📜</span> হিস্টোরি
+        </div>
+    </div>
+
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js";
+    import { getDatabase, ref, push, set, onValue, get, child, update } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyB_84BFLI-5iMOTwDUepXKUmDQgK4csZFk",
+        authDomain: "lenden-d2bc9.firebaseapp.com",
+        databaseURL: "https://lenden-d2bc9-default-rtdb.firebaseio.com",
+        projectId: "lenden-d2bc9",
+        storageBucket: "lenden-d2bc9.firebasestorage.app",
+        messagingSenderId: "258159170143",
+        appId: "1:258159170143:web:97e3f7acaa6d2fdaa001ea",
+        measurementId: "G-V6TRPK7XET"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    try { getAnalytics(app) } catch (e) { }
+    const db = getDatabase(app);
+
+    // Refs
+    const rootPath = 'Sim';
+    const customersRef = ref(db, `${rootPath}/Customers`);
+    const stockRef = ref(db, `${rootPath}/Stock`);
+    const historyRef = ref(db, `${rootPath}/History`);
+
+    // UI elements
+    const openAdd = document.getElementById('open-add');
+    const modal = document.getElementById('modal');
+    const cancel = document.getElementById('cancel');
+    const saveBtn = document.getElementById('save-cust');
+    const notifyEl = document.getElementById('notify');
+    const customersList = document.getElementById('customers');
+    const countActive = document.getElementById('count-active');
+    const countInactive = document.getElementById('count-inactive');
+    const countWarning = document.getElementById('count-warning');
+    const countDanger = document.getElementById('count-danger');
+    const stocksEl = document.getElementById('stocks');
+    const addStockBtn = document.getElementById('add-stock');
+    const historyTableBody = document.querySelector('#history-table tbody');
+    const summaryTotalPrice = document.getElementById('summary-total-price');
+    const summaryYesSim = document.getElementById('summary-yes-sim');
+    const summaryHotlinkSim = document.getElementById('summary-hotlink-sim');
+    const summaryDigiSim = document.getElementById('summary-digi-sim');
+
+
+    // modal toggles
+    openAdd.addEventListener('click', () => modal.classList.remove('hidden'));
+    cancel.addEventListener('click', () => modal.classList.add('hidden'));
+
+    // bottom nav
+    document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', (e) => {
+        document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        const target = e.currentTarget.dataset.target;
+        document.querySelectorAll('.card-section').forEach(s => s.style.display = 'none');
+        document.getElementById(target).style.display = 'block';
+    }));
+
+    // helpers
+    function notify(msg, ms = 3000) { notifyEl.innerText = msg; notifyEl.style.display = 'block'; setTimeout(() => notifyEl.style.display = 'none', ms) }
+
+    async function getStockValue(sim) {
+        const snap = await get(child(ref(db), `${rootPath}/Stock/${sim}`));
+        return snap.exists() ? snap.val() : 0;
+    }
+
+    async function setStockValue(sim, val) {
+        await set(ref(db, `${rootPath}/Stock/${sim}`), Number(val));
+        loadStocks();
+    }
+
+    // add stock
+    addStockBtn.addEventListener('click', async () => {
+        const sim = document.getElementById('add-sim-type').value;
+        const qty = Number(document.getElementById('add-qty').value) || 0;
+        if (qty <= 0) return notify('সঠিক সংখ্যা দিন');
+        const cur = await getStockValue(sim);
+        await setStockValue(sim, cur + qty);
+        notify(`${sim} স্টকে ${qty} টি যোগ করা হয়েছে`);
+        document.getElementById('add-qty').value = ''; // Clear input
+    });
+
+    // save customer (activate sim)
+    saveBtn.addEventListener('click', async () => {
+        const name = document.getElementById('cust-name').value.trim();
+        const sim = document.getElementById('sim-type').value;
+        const actDate = document.getElementById('active-date').value || new Date().toISOString().slice(0, 10);
+        const duration = Number(document.getElementById('duration').value) || 30;
+        const price = Number(document.getElementById('price').value) || 0;
+
+        if (!name) return notify('নাম দিন');
+
+        // check stock
+        const curStock = await getStockValue(sim);
+        if (curStock <= 0) {
+            notify('স্টক অবশিষ্ট নেই');
+            return;
+        }
+
+        // compute expiry
+        const start = new Date(actDate);
+        const end = new Date(start);
+        end.setDate(end.getDate() + duration);
+
+        // store customer
+        const newCustRef = push(customersRef);
+        const custData = {
+            name,
+            sim,
+            activeDate: actDate,
+            duration,
+            price,
+            createdAt: new Date().toISOString(),
+            expiresAt: end.toISOString(),
+            status: 'active'
+        };
+        await set(newCustRef, custData);
+
+        // store history (push to top-level with timestamp key)
+        const histRef = push(historyRef);
+        await set(histRef, { ...custData, id: newCustRef.key });
+
+        // decrement stock
+        await setStockValue(sim, curStock - 1);
+        notify('সেভ হয়েছে');
+        modal.classList.add('hidden');
+        clearForm();
+    });
+
+    function clearForm() {
+        document.getElementById('cust-name').value = '';
+        document.getElementById('price').value = 0;
+        document.getElementById('duration').value = 30;
+        document.getElementById('active-date').value = '';
+    }
+
+    // render customers list
+    function calcDaysRemaining(expiresAt) {
+        const now = new Date();
+        // Set 'now' to start of day for accurate comparison if time of day is irrelevant
+        now.setHours(0, 0, 0, 0);
+
+        const exp = new Date(expiresAt);
+        exp.setHours(0, 0, 0, 0);
+
+        const diff = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
+        return diff;
+    }
+
+    // UPDATED - logic for progress circle color
+    function getProgressColor(days) {
+        if (days > 15) return 'var(--progress-green)';
+        if (days > 7) return 'var(--progress-yellow)';
+        if (days > 3) return 'var(--progress-red-mild)';
+        return 'var(--progress-red-danger)'; // 3 days or less, including expired
+    }
+
+
+    // better approach: render list items with DOM
+    function renderCustomers(items) {
+        customersList.innerHTML = '';
+        let active = 0, inactive = 0, warn = 0, dang = 0;
+
+        items.forEach(item => {
+            const days = calcDaysRemaining(item.expiresAt);
+
+            if (days > 0) active++; else inactive++;
+            // Stats logic: Warning < 7 days, Danger < 3 days.
+            if (days <= 7 && days > 3) warn++;
+            if (days <= 3 && days > 0) dang++;
+            else if (days <= 0) dang++; // Expired counts as dangerous
+
+
+            // Determine the progress circle color
+            const color = getProgressColor(days);
+
+            // Calculate percentage based on *initial* duration
+            const percent = Math.max(0, Math.min(100, Math.round((days / item.duration) * 100)));
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'customer';
+
+            const left = document.createElement('div');
+            left.className = 'left';
+
+            const progWrap = document.createElement('div');
+            progWrap.className = 'progress-wrap';
+
+            // create svg progress using canvas math
+            const size = 72, stroke = 8, r = (size - stroke) / 2;
+            const c = 2 * Math.PI * r;
+            const dash = (Math.max(0, Math.min(100, percent)) / 100) * c;
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(svgNS, 'svg');
+            svg.setAttribute('width', size);
+            svg.setAttribute('height', size);
+            svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+
+            // Background circle
+            const back = document.createElementNS(svgNS, 'circle');
+            back.setAttribute('cx', size / 2);
+            back.setAttribute('cy', size / 2);
+            back.setAttribute('r', r);
+            back.setAttribute('stroke', 'rgba(255,255,255,0.08)'); // Slightly brighter background circle
+            back.setAttribute('stroke-width', stroke);
+            back.setAttribute('fill', 'none');
+
+            // Progress circle
+            const prog = document.createElementNS(svgNS, 'circle');
+            prog.setAttribute('cx', size / 2);
+            prog.setAttribute('cy', size / 2);
+            prog.setAttribute('r', r);
+            prog.setAttribute('stroke-width', stroke);
+            prog.setAttribute('fill', 'none');
+            prog.setAttribute('stroke-linecap', 'round');
+            prog.setAttribute('stroke-dasharray', c);
+            prog.setAttribute('stroke-dashoffset', c - dash);
+            prog.setAttribute('transform', `rotate(-90 ${size / 2} ${size / 2})`);
+            
+            // PROGRESS COLOR APPLIED HERE
+            prog.setAttribute('stroke', color); 
+
+            svg.appendChild(back);
+            svg.appendChild(prog);
+
+            // Center Text (UPDATED)
+            const txt = document.createElement('div');
+            txt.className = 'progress-text';
+            txt.innerText = `${Math.max(0, days)}d`; // Display days remaining
+            if (days <= 0) {
+                txt.innerText = '0d';
+            }
+
+            progWrap.appendChild(svg);
+            progWrap.appendChild(txt); // Text is absolutely positioned over SVG
+
+            const meta = document.createElement('div');
+            meta.className = 'meta';
+            const nm = document.createElement('div');
+            nm.className = 'name';
+            nm.innerText = item.name;
+            const sim = document.createElement('div');
+            sim.className = 'sim';
+            const expiryText = days > 0 ? days + ' days' : (days === 0 ? 'Today' : 'Expired');
+            sim.innerText = item.sim + ' • Expires in ' + expiryText;
+            meta.appendChild(nm);
+            meta.appendChild(sim);
+
+            left.appendChild(progWrap);
+            left.appendChild(meta);
+            wrapper.appendChild(left);
+
+            const actions = document.createElement('div');
+            actions.className = 'actions';
+            const renewBtn = document.createElement('button');
+            renewBtn.className = 'btn small primary'; // Always primary for visibility
+            renewBtn.innerText = days > 0 ? 'Renew' : 'রিনিউ করুন';
+            renewBtn.addEventListener('click', () => {
+                // open modal prefill
+                modal.classList.remove('hidden');
+                document.getElementById('cust-name').value = item.name;
+                document.getElementById('sim-type').value = item.sim;
+                document.getElementById('active-date').value = new Date().toISOString().slice(0, 10); // Set today's date
+                document.getElementById('duration').value = item.duration;
+                document.getElementById('price').value = item.price || 0;
+            });
+            actions.appendChild(renewBtn);
+            wrapper.appendChild(actions);
+
+            customersList.appendChild(wrapper);
+        });
+
+        countActive.innerText = active;
+        countInactive.innerText = inactive;
+        countWarning.innerText = warn;
+        countDanger.innerText = dang;
+    }
+
+    // load all customers from Firebase
+    function loadCustomers() {
+        onValue(customersRef, (snapshot) => {
+            const list = [];
+            snapshot.forEach(ch => {
+                const data = ch.val();
+                data._key = ch.key;
+                list.push(data);
+            });
+            // sort by createdAt descending
+            list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            renderCustomers(list);
+        });
+    }
+
+    // load stocks
+    function loadStocks() {
+        onValue(stockRef, (snap) => {
+            const map = snap.exists() ? snap.val() : {};
+            stocksEl.innerHTML = '';
+            ['Yes SIM', 'Hotlink SIM', 'DiGi SIM'].forEach(k => {
+                const qty = map[k] ?? 0;
+                const node = document.createElement('div');
+                node.className = 'stock-item';
+                node.innerHTML = `<div>${k}</div><div class="note">${qty} টি</div>`;
+                stocksEl.appendChild(node);
+            });
+        });
+    }
+
+    // load history
+    function loadHistory() {
+        onValue(historyRef, (snap) => {
+            const rows = [];
+            snap.forEach(ch => {
+                const d = ch.val();
+                rows.push(d);
+            });
+            rows.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            renderHistory(rows);
+        });
+    }
+
+    function renderHistory(rows) {
+        historyTableBody.innerHTML = '';
+        let totalPrice = 0;
+        let simCounts = { 'Yes SIM': 0, 'Hotlink SIM': 0, 'DiGi SIM': 0 };
+
+        rows.forEach(r => {
+            const tr = document.createElement('tr');
+            const daysRemain = calcDaysRemaining(r.expiresAt);
+            const status = daysRemain > 0 ? 'Active' : 'Inactive';
+
+            // Format dates
+            const activeDate = r.activeDate || '';
+            const expiresAtDate = r.expiresAt ? new Date(r.expiresAt).toISOString().slice(0, 10) : '';
+
+            tr.innerHTML = `
+                <td>${r.name}</td>
+                <td>${r.sim}</td>
+                <td>${r.price}</td>
+            <td><span class="badge" style="background:${daysRemain > 0 ? 'rgba(46,204,113,0.2)' : 'rgba(255,100,124,0.2)'}; color:${daysRemain > 0 ? 'var(--success)' : 'var(--danger)'};">${status}</span></td>
+                
+            <td>${activeDate}</td>
+            <td>${expiresAtDate}</td> <td>${r.duration}</td>               
+                
+                            `;
+            historyTableBody.appendChild(tr);
+
+            // Calculate Summary
+            totalPrice += r.price || 0;
+            if (r.sim in simCounts) {
+                simCounts[r.sim]++;
+            }
+        });
+
+        // Update Summary (NEW FEATURE)
+        summaryTotalPrice.innerText = totalPrice.toFixed(2); // Assuming price is a currency
+        summaryYesSim.innerText = simCounts['Yes SIM'];
+        summaryHotlinkSim.innerText = simCounts['Hotlink SIM'];
+        summaryDigiSim.innerText = simCounts['DiGi SIM'];
+    }
+
+    // filter history
+    document.getElementById('filter-history').addEventListener('click', () => {
+        const f = document.getElementById('from-date').value;
+        const t = document.getElementById('to-date').value;
+        if (!f || !t) return notify('From এবং To তারিখ দিন');
+
+        // read once and filter
+        get(historyRef).then(snap => {
+            const arr = [];
+            snap.forEach(ch => {
+                const v = ch.val();
+                arr.push(v);
+            });
+            const from = new Date(f);
+            const to = new Date(t);
+            to.setHours(23, 59, 59, 999);
+            const filtered = arr.filter(x => {
+                const c = new Date(x.createdAt);
+                return c >= from && c <= to;
+            });
+            filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            renderHistory(filtered);
+        });
+    });
+
+    document.getElementById('clear-filter').addEventListener('click', () => {
+        loadHistory();
+        document.getElementById('from-date').value = '';
+        document.getElementById('to-date').value = '';
+    });
+
+    // initialize
+    loadCustomers();
+    loadStocks();
+    loadHistory();
+</script>
+
+</body>
+</html>

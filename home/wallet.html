@@ -194,7 +194,15 @@
         <table class="table" id="historyTable">
           <thead>
             <tr>
-              <th>তারিখ</th><th>একাউন্ট</th><th>ধরন</th><th>পরিমাণ</th><th>আগের</th><th>এখন</th><th>কারণ</th> </tr>
+              <th>তারিখ</th>
+              <th>একাউন্ট</th>
+              <th>ধরন</th>
+              <th>পরিমাণ</th>
+              <th>কারণ</th>
+              <th>আগের</th>
+              <th>এখন</th>
+               
+            </tr>
           </thead>
           <tbody id="historyBody"></tbody>
         </table>
@@ -472,9 +480,10 @@
           <td>${accountDisplay}</td>
           <td>${typeText}</td>
           <td><span class="${amountCellClass}">${amountSignText} ${Math.abs(amt)}</span></td>
+          <td>${it.remark||''}</td>
           <td>${it['old balance']!=null?formatCurrency(it['old balance']):''}</td>
           <td>${it['new balance']!=null?formatCurrency(it['new balance']):''}</td>
-          <td>${it.remark||''}</td>
+          
         `;
         historyBody.appendChild(tr);
         totalItems++;

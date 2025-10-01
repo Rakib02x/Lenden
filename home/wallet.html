@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Add / Spend Balance — Lenden</title>
+  <title>Add / Spend / Transfer Balance — Lenden</title>
   <style>
     :root{
       --bg: #07101a;
@@ -13,6 +13,7 @@
       --accent: #4f7cff;
       --danger: #ff4757;
       --success: #2ecc71;
+      --warning: #f1c40f; /* New color for transfer */
       --border: rgba(255,255,255,0.08);
       --soft: rgba(255,255,255,0.03);
     }
@@ -23,7 +24,7 @@
       color:var(--text);
       -webkit-font-smoothing:antialiased
     }
-      
+
     .container{max-width:520px;margin:18px auto;padding:14px}
 
     /* Wallet card */
@@ -51,32 +52,82 @@
     .btn:active{transform:translateY(1px)}
     .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text);font-weight:600}
     .btn.danger{background:linear-gradient(90deg,var(--danger),#ff6b81)}
+    .btn.warning{background:linear-gradient(90deg,var(--warning),#f39c12);color:#1c1c1c} /* New style for Transfer button */
 
     /* panel */
     .form-panel{margin-top:12px;background:var(--card);padding:12px;border-radius:12px;border:1px solid var(--border);display:none}
     .form-panel.active{display:block}
     .form-row{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap;justify-content:center}
-    select,input[type=number],input[type=date]{
+    select,input[type=number],input[type=date],input[type=text]{ /* Added input[type=text] */
       padding:10px;border-radius:10px;border:1px solid var(--border);
       background:var(--soft);color:var(--text);min-width:160px
     }
     .input-amount{flex:1;min-width:140px}
 
+    /* Transfer specific styles */
+    .transfer-accounts{
+        display: none;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+    }
+    .transfer-accounts.active{ display: flex; }
+    .transfer-accounts select{ flex: 1; }
+
     /* history */
     .history{margin-top:16px;background:var(--card);padding:12px;border-radius:12px;border:1px solid var(--border)}
     .history .controls{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px}
     .small{font-size:13px;color:var(--muted)}
-    .table{width:100%;border-collapse:collapse}
+
+    /* Make table horizontally scrollable */
+    .table-wrapper{ overflow-x: auto; }
+    .table{width:100%;border-collapse:collapse;min-width: 600px;} /* Increased min-width for all columns */
     .table th,.table td{padding:8px 6px;text-align:left;font-size:14px;border-bottom:1px dashed rgba(255,255,255,0.05)}
-    .table th{font-weight:700;color:var(--muted)}
+    .table th{font-weight:700;color:var(--muted);white-space: nowrap;}
+    .table td{white-space: nowrap;} /* Prevent wrapping in table cells */
+    .table td:nth-child(2), .table td:nth-child(7){ max-width: 100px; overflow: hidden; text-overflow: ellipsis; } /* Account and Remark column width fix */
 
     /* row styles */
     tr.tr-add td{background:linear-gradient(90deg, rgba(46,204,113,0.06), transparent);}
     tr.tr-spend td{background:linear-gradient(90deg, rgba(255,71,87,0.06), transparent);}
+    tr.tr-transfer td{background:linear-gradient(90deg, rgba(241,196,15,0.06), transparent);} /* New style for transfer row */
     .row-add{color:var(--success);font-weight:700}
     .row-spend{color:var(--danger);font-weight:700}
+    .row-transfer{color:var(--warning);font-weight:700} /* New style for transfer amount */
+    
+    .filter-options{
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 10px;
+    }
+    .filter-options select{ min-width: 120px; flex: 1; }
+    .filter-options input[type=date]{ flex: 1; }
 
-    .summary{margin-top:10px;display:flex;justify-content:space-between;align-items:center;padding-top:8px;color:var(--muted);flex-wrap:wrap}
+    /* Summary style for better display of multiple stats */
+    .summary{
+      margin-top:10px;
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start; /* Aligned to start to make vertical flow better on small screen */
+      padding-top:8px;
+      color:var(--muted);
+      flex-wrap:wrap;
+      flex-direction: column; /* Changed to column for better stacking */
+      gap: 6px;
+    }
+    /* New styles for summary stats */
+    .summary-stats{
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+    .stat-add{ color: var(--success); font-weight: 700; }
+    .stat-spend{ color: var(--danger); font-weight: 700; }
+    .stat-transfer{ color: var(--warning); font-weight: 700; }
+
 
     /* spinner */
     .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.12);border-top-color:var(--text);border-radius:50%;animation:spin 1s linear infinite;vertical-align:middle}
@@ -87,68 +138,93 @@
       .wallet .amount{font-size:34px}
       .form-row{flex-direction:column;align-items:stretch}
       .summary{flex-direction:column;align-items:flex-start;gap:6px}
+      .summary-stats{flex-direction: column; gap: 4px; }
       .btn{min-width:110px;padding:9px}
+      .transfer-accounts{flex-direction:column;align-items:stretch}
+      .filter-options{flex-direction: column; align-items: stretch;}
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- Wallet -->
     <div class="wallet">
       <div class="title">Total Wallet Balance</div>
       <div class="amount" id="totalBalance">৳ 0</div>
       <div class="btns">
         <button id="btnAdd" class="btn">টাকা যোগ</button>
         <button id="btnSpend" class="btn danger">খরচ করুন</button>
-      </div>
+        <button id="btnTransfer" class="btn warning">ট্রান্সফার</button> </div>
     </div>
 
-    <!-- Action Panel -->
     <div id="actionPanel" class="form-panel">
-      <div class="form-row">
+      <div id="commonAccountRow" class="form-row">
         <select id="selectAccount">
           <option value="">-- লোড হচ্ছে --</option>
         </select>
       </div>
+
+      <div id="transferAccounts" class="transfer-accounts">
+        <select id="selectFromAccount">
+          <option value="">-- থেকে পাঠান --</option>
+        </select>
+        <select id="selectToAccount">
+          <option value="">-- তে পাঠান --</option>
+        </select>
+      </div>
+
       <div class="form-row">
         <input id="amountInput" class="input-amount" type="number" min="0" step="0.01" placeholder="পরিমাণ (৳)" />
       </div>
+      <div class="form-row">
+        <input id="remarkInput" class="input-amount" type="text" placeholder="কারণ/নোট (ঐচ্ছিক)" />
+      </div>
+
       <div class="form-row">
         <button id="submitBtn" class="btn">যোগ করুন</button>
         <button id="cancelBtn" class="btn ghost">বাতিল</button>
       </div>
     </div>
 
-    <!-- History -->
     <div class="history">
       <div class="controls">
         <div class="small">মোট <span id="countShown">0</span> টি হিস্টরি</div>
       </div>
 
-      <table class="table" id="historyTable">
-        <thead>
-          <tr>
-            <th>তারিখ</th><th>একাউন্ট</th><th>ধরন</th><th>পরিমাণ</th><th>আগের</th><th>এখন</th>
-          </tr>
-        </thead>
-        <tbody id="historyBody"></tbody>
-      </table>
+      <div class="table-wrapper">
+        <table class="table" id="historyTable">
+          <thead>
+            <tr>
+              <th>তারিখ</th><th>একাউন্ট</th><th>ধরন</th><th>পরিমাণ</th><th>আগের</th><th>এখন</th><th>কারণ</th> </tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
 
-      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+      <div class="filter-options">
         <input type="date" id="fromDate" />
         <input type="date" id="toDate" />
+        <select id="selectType">
+            <option value="">-- সব ধরন --</option>
+            <option value="add">যোগ</option>
+            <option value="spend">খরচ</option>
+            <option value="transfer">ট্রান্সফার</option>
+        </select>
       </div>
       <button style="margin-top:10px;" id="applyFilter" class="btn ghost">Apply</button>
       <button id="clearFilter" class="btn ghost">Clear</button>
 
       <div class="summary">
         <div class="small">মোট লেনদেন: <span id="totalItems">0</span></div>
+        <div class="summary-stats">
+            <div class="small">মোট যোগ: <span id="totalAdd" class="stat-add">৳ 0</span></div>
+            <div class="small">মোট খরচ: <span id="totalSpend" class="stat-spend">৳ 0</span></div>
+            <div class="small">মোট ট্রান্সফার: <span id="totalTransfer" class="stat-transfer">৳ 0</span></div>
+        </div>
         <div class="small">নেট চার্য: <span id="netChange">৳ 0</span></div>
       </div>
     </div>
   </div>
 
-  <!-- Firebase + Script -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
     import { getDatabase, ref, onValue, get, set, push } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
@@ -171,9 +247,15 @@
     const totalBalanceEl = document.getElementById('totalBalance');
     const btnAdd = document.getElementById('btnAdd');
     const btnSpend = document.getElementById('btnSpend');
+    const btnTransfer = document.getElementById('btnTransfer');
     const actionPanel = document.getElementById('actionPanel');
+    const commonAccountRow = document.getElementById('commonAccountRow');
     const selectAccount = document.getElementById('selectAccount');
+    const transferAccounts = document.getElementById('transferAccounts');
+    const selectFromAccount = document.getElementById('selectFromAccount');
+    const selectToAccount = document.getElementById('selectToAccount');
     const amountInput = document.getElementById('amountInput');
+    const remarkInput = document.getElementById('remarkInput');
     const submitBtn = document.getElementById('submitBtn');
     const cancelBtn = document.getElementById('cancelBtn');
     const historyBody = document.getElementById('historyBody');
@@ -182,8 +264,15 @@
     const countShown = document.getElementById('countShown');
     const fromDate = document.getElementById('fromDate');
     const toDate = document.getElementById('toDate');
+    const selectType = document.getElementById('selectType'); 
     const applyFilter = document.getElementById('applyFilter');
     const clearFilter = document.getElementById('clearFilter');
+    
+    // New Summary Elements
+    const totalAddEl = document.getElementById('totalAdd');
+    const totalSpendEl = document.getElementById('totalSpend');
+    const totalTransferEl = document.getElementById('totalTransfer');
+
 
     let mode = 'add';
     let accounts = {};
@@ -206,27 +295,93 @@
       return new Date(+parts[2], +parts[1]-1, +parts[0]);
     }
 
+    /**
+     * Finds the start date (29th of the previous month) and end date (28th of the current month)
+     * for the current billing cycle (29th to 28th).
+     */
+    function getAutoFilterDates() {
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth();
+
+        let startMonth = currentMonth;
+        let startYear = currentYear;
+        
+        if (today.getDate() < 29) {
+            startMonth = currentMonth - 1;
+            if (startMonth < 0) {
+                startMonth = 11;
+                startYear = currentYear - 1;
+            }
+        }
+        
+        let endMonth = startMonth + 1;
+        let endYear = startYear;
+        if (endMonth > 11) {
+            endMonth = 0;
+            endYear = startYear + 1;
+        }
+
+        const startDate = new Date(startYear, startMonth, 29);
+        const endDate = new Date(endYear, endMonth, 28);
+        endDate.setHours(23, 59, 59, 999); 
+
+        // Format to YYYY-MM-DD for input type="date"
+        const formatForInput = (d) => {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        };
+
+        return {
+            start: formatForInput(startDate),
+            end: formatForInput(endDate),
+        };
+    }
+
+    // Set initial auto-filter dates
+    function setInitialFilterDates() {
+        const { start, end } = getAutoFilterDates();
+        if (!fromDate.value && !toDate.value) { 
+            fromDate.value = start;
+            toDate.value = end;
+        }
+    }
+
     // populate accounts
     function populateAccounts(snapshotVal){
       accounts = snapshotVal || {};
-      selectAccount.innerHTML = '';
       const keys = Object.keys(accounts);
-      if(keys.length === 0){
-        const opt = document.createElement('option'); opt.value=''; opt.textContent = '-- কোন একাউন্ট নেই --'; opt.disabled = true;
-        selectAccount.appendChild(opt);
-        totalBalanceEl.textContent = formatCurrency(0);
-        return;
-      }
-      let total = 0;
-      keys.forEach(key=>{
-        const bal = parseFloat(accounts[key]?.Balance || 0) || 0;
-        total += bal;
-        const opt = document.createElement('option');
-        opt.value = key;
-        opt.textContent = `${key} — ${formatCurrency(bal)}`;
-        selectAccount.appendChild(opt);
-      });
-      totalBalanceEl.textContent = formatCurrency(total);
+
+      // Function to create options
+      const createOptions = (selectEl, includeNoAccount=true) => {
+          selectEl.innerHTML = '';
+          if(includeNoAccount){
+              const opt = document.createElement('option'); opt.value=''; opt.textContent = '-- লোড হচ্ছে --';
+              if(keys.length === 0){
+                  opt.textContent = '-- কোন একাউন্ট নেই --'; opt.disabled = true;
+              }
+              selectEl.appendChild(opt);
+          }
+
+          let total = 0;
+          keys.forEach(key=>{
+            const bal = parseFloat(accounts[key]?.Balance || 0) || 0;
+            total += bal;
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = `${key} — ${formatCurrency(bal)}`;
+            selectEl.appendChild(opt);
+          });
+          return total;
+      };
+
+      const totalBalance = createOptions(selectAccount);
+      createOptions(selectFromAccount, true);
+      createOptions(selectToAccount, true);
+
+      totalBalanceEl.textContent = formatCurrency(totalBalance);
     }
 
     // realtime listeners
@@ -236,71 +391,152 @@
       const val = snap.val() || {};
       historyList = Object.keys(val).map(k => ({ _key:k, ...val[k] }));
       historyList.sort((a,b) => (b._ts||0) - (a._ts||0));
+      setInitialFilterDates(); 
       renderHistory();
     });
 
     function renderHistory(){
+      // Get filter values
       let from = fromDate.value ? new Date(fromDate.value) : null;
       let to = toDate.value ? new Date(toDate.value) : null;
       if(to) to.setHours(23,59,59,999);
+      const selectedType = selectType.value; 
 
       const filtered = historyList.filter(item => {
+        // 1. Determine item type
+        const itemType = item.type || (item['add balance'] ? 'add' : (item['spend amount'] ? 'spend' : 'transfer'));
+
+        // 2. Date Filter
         const d = parseDdMmYyyyToDate(item.date);
-        if(!d) return true;
-        if(from && d < from) return false;
-        if(to && d > to) return false;
+        if(d){
+            if(from && d < from) return false;
+            if(to && d > to) return false;
+        }
+
+        // 3. Type Filter
+        if(selectedType && selectedType !== itemType) {
+            return false;
+        }
+
         return true;
       });
 
       historyBody.innerHTML = '';
       let totalItems = 0, net = 0;
+      let totalAdd = 0;
+      let totalSpend = 0;
+      let totalTransfer = 0; // Track total transfer amount
+
       for(const it of filtered){
+        const type = it.type || (it['add balance'] ? 'add' : (it['spend amount'] ? 'spend' : 'transfer'));
+
         const tr = document.createElement('tr');
-        const type = it.type || (it['add balance'] ? 'add' : 'spend');
-        const amt = Number(it['add balance'] || it['spend amount'] || it.amount || 0);
-        const sign = (type === 'add') ? '+' : '-';
-        tr.className = (type === 'add') ? 'tr-add' : 'tr-spend';
+        let amt = 0;
+        let sign = '';
+        let accountDisplay = it.account||'';
+
+        if(type === 'add'){
+            amt = Number(it['add balance'] || 0);
+            sign = '+';
+            tr.className = 'tr-add';
+            totalAdd += amt; // Sum Add
+        } else if (type === 'spend'){
+            amt = Number(it['spend amount'] || 0);
+            sign = '-';
+            tr.className = 'tr-spend';
+            totalSpend += amt; // Sum Spend
+        } else if (type === 'transfer'){
+            amt = Number(it['transfer amount'] || 0);
+            sign = '±'; 
+            tr.className = 'tr-transfer';
+            accountDisplay = `${it['from account'] || '?'} -> ${it['to account'] || '?'}`;
+            totalTransfer += amt; // Sum Transfer
+        } else {
+            amt = Number(it.amount || 0);
+            sign = (amt >= 0) ? '+' : '-';
+        }
+
+        // Calculate net change only for add/spend
+        if (type === 'add') {
+             net += amt;
+        } else if (type === 'spend') {
+             net -= amt;
+        }
+
+        const amountCellClass = (type === 'add') ? 'row-add' : ((type === 'spend') ? 'row-spend' : 'row-transfer');
+        const typeText = (type === 'add') ? 'যোগ' : ((type === 'spend') ? 'খরচ' : 'ট্রান্সফার');
+        const amountSignText = (type === 'transfer') ? '±' : sign;
 
         tr.innerHTML = `
           <td>${it.date||''}</td>
-          <td>${it.account||''}</td>
-          <td>${(sign==='+')?'যোগ':'খরচ'}</td>
-          <td><span class="${sign==='+'?'row-add':'row-spend'}">${sign} ${Math.abs(amt)}</span></td>
+          <td>${accountDisplay}</td>
+          <td>${typeText}</td>
+          <td><span class="${amountCellClass}">${amountSignText} ${Math.abs(amt)}</span></td>
           <td>${it['old balance']!=null?formatCurrency(it['old balance']):''}</td>
-          <td>${it['new balance']!=null?formatCurrency(it['new balance']):''}</td>`;
+          <td>${it['new balance']!=null?formatCurrency(it['new balance']):''}</td>
+          <td>${it.remark||''}</td>
+        `;
         historyBody.appendChild(tr);
-        totalItems++; net += (sign==='+')?amt:-amt;
+        totalItems++;
       }
+      
+      // Update Summary UI
       totalItemsEl.textContent = totalItems;
       countShown.textContent = totalItems;
       netChangeEl.textContent = formatCurrency(net);
+      totalAddEl.textContent = formatCurrency(totalAdd);
+      totalSpendEl.textContent = formatCurrency(totalSpend);
+      totalTransferEl.textContent = formatCurrency(totalTransfer);
+    }
+
+    // UI functions for mode change
+    function setMode(newMode) {
+        mode = newMode;
+        actionPanel.classList.add('active');
+        amountInput.value = '';
+        remarkInput.value = '';
+
+        // Hide/Show account select rows
+        const isTransfer = (mode === 'transfer');
+        commonAccountRow.style.display = isTransfer ? 'none' : 'flex';
+        transferAccounts.classList.toggle('active', isTransfer);
+
+        // Update button text/style
+        if (mode === 'add') {
+            submitBtn.textContent = 'যোগ করুন';
+            submitBtn.classList.remove('danger', 'warning');
+        } else if (mode === 'spend') {
+            submitBtn.textContent = 'খরচ নিশ্চিত';
+            submitBtn.classList.remove('warning');
+            submitBtn.classList.add('danger');
+        } else if (mode === 'transfer') {
+            submitBtn.textContent = 'ট্রান্সফার করুন';
+            submitBtn.classList.remove('danger');
+            submitBtn.classList.add('warning');
+        }
     }
 
     // UI events
-    btnAdd.addEventListener('click', ()=> {
-      mode = 'add';
-      actionPanel.classList.add('active');
-      submitBtn.textContent = 'যোগ করুন';
-      submitBtn.classList.remove('danger');
-      amountInput.value = '';
-    });
-    btnSpend.addEventListener('click', ()=> {
-      mode = 'spend';
-      actionPanel.classList.add('active');
-      submitBtn.textContent = 'খরচ নিশ্চিত';
-      submitBtn.classList.add('danger');
-      amountInput.value = '';
-    });
+    btnAdd.addEventListener('click', ()=> setMode('add'));
+    btnSpend.addEventListener('click', ()=> setMode('spend'));
+    btnTransfer.addEventListener('click', ()=> setMode('transfer'));
     cancelBtn.addEventListener('click', ()=> actionPanel.classList.remove('active'));
 
     applyFilter.addEventListener('click', ()=> renderHistory());
-    clearFilter.addEventListener('click', ()=>{ fromDate.value=''; toDate.value=''; renderHistory(); });
+    
+    clearFilter.addEventListener('click', ()=>{ 
+        fromDate.value=''; 
+        toDate.value=''; 
+        selectType.value=''; 
+        setInitialFilterDates(); 
+        renderHistory(); 
+    });
 
-    // submit
+    // submit handler
     submitBtn.addEventListener('click', async ()=>{
-      const acc = selectAccount.value;
       const amt = parseFloat(amountInput.value||0);
-      if(!acc){ alert('একাউন্ট সিলেক্ট করুন'); return; }
+      const remark = remarkInput.value.trim();
+
       if(!amt || amt<=0){ alert('একটি বৈধ পরিমাণ লিখুন'); return; }
 
       const oldHtml = submitBtn.innerHTML;
@@ -308,35 +544,84 @@
       submitBtn.innerHTML = '<span class="spinner"></span> প্রসেসিং...';
 
       try{
-        const accRef = ref(db, `Account/${acc}/Balance`);
-        const snap = await get(accRef);
-        let oldBal = parseFloat(snap.val()||0)||0;
-        let newBal;
-        const historyEntry = {
-          date: todayDdMmYyyy(),
-          account: acc,
-          _iso: new Date().toISOString(),
-          _ts: Date.now(),
-          type: mode
-        };
+        if(mode === 'transfer'){
+            const fromAcc = selectFromAccount.value;
+            const toAcc = selectToAccount.value;
 
-        if(mode==='add'){
-          newBal = oldBal+amt;
-          await set(accRef,newBal);
-          historyEntry['add balance']=amt;
-        }else{
-          newBal = oldBal-amt;
-          await set(accRef,newBal);
-          historyEntry['spend amount']=amt;
+            if(!fromAcc || !toAcc){ alert('ট্রান্সফারের জন্য উভয় একাউন্ট সিলেক্ট করুন'); return; }
+            if(fromAcc === toAcc){ alert('একই একাউন্টে ট্রান্সফার করা যাবে না'); return; }
+
+            // 1. Get old balances
+            const fromSnap = await get(ref(db, `Account/${fromAcc}/Balance`));
+            const toSnap = await get(ref(db, `Account/${toAcc}/Balance`));
+
+            let oldBalFrom = parseFloat(fromSnap.val()||0)||0;
+            let oldBalTo = parseFloat(toSnap.val()||0)||0;
+
+            if(oldBalFrom < amt){ alert(`একাউন্ট ${fromAcc}-এ পর্যাপ্ত ব্যালেন্স নেই। বর্তমান ব্যালেন্স: ${formatCurrency(oldBalFrom)}`); return; }
+
+            // 2. Calculate new balances
+            let newBalFrom = oldBalFrom - amt;
+            let newBalTo = oldBalTo + amt;
+
+            // 3. Update balances
+            await set(ref(db, `Account/${fromAcc}/Balance`), newBalFrom);
+            await set(ref(db, `Account/${toAcc}/Balance`), newBalTo);
+
+            // 4. Record history (single entry for transfer)
+            const historyEntry = {
+                date: todayDdMmYyyy(),
+                type: 'transfer',
+                'from account': fromAcc,
+                'to account': toAcc,
+                'transfer amount': amt,
+                'old balance': oldBalFrom,
+                'new balance': newBalFrom,
+                remark: remark,
+                _iso: new Date().toISOString(),
+                _ts: Date.now(),
+            };
+            await push(ref(db,'history'),historyEntry);
+
+        } else { // 'add' or 'spend'
+            const acc = selectAccount.value;
+            if(!acc){ alert('একাউন্ট সিলেক্ট করুন'); return; }
+
+            const accRef = ref(db, `Account/${acc}/Balance`);
+            const snap = await get(accRef);
+            let oldBal = parseFloat(snap.val()||0)||0;
+            let newBal;
+
+            const historyEntry = {
+              date: todayDdMmYyyy(),
+              account: acc,
+              remark: remark,
+              _iso: new Date().toISOString(),
+              _ts: Date.now(),
+              type: mode
+            };
+
+            if(mode==='add'){
+              newBal = oldBal+amt;
+              await set(accRef,newBal);
+              historyEntry['add balance']=amt;
+            }else{
+               if(oldBal < amt){ alert(`একাউন্ট ${acc}-এ পর্যাপ্ত ব্যালেন্স নেই। বর্তমান ব্যালেন্স: ${formatCurrency(oldBal)}`); return; }
+              newBal = oldBal-amt;
+              await set(accRef,newBal);
+              historyEntry['spend amount']=amt;
+            }
+
+            historyEntry['old balance']=oldBal;
+            historyEntry['new balance']=newBal;
+
+            await push(ref(db,'history'),historyEntry);
         }
-        historyEntry['old balance']=oldBal;
-        historyEntry['new balance']=newBal;
-
-        // শুধু Firebase এ push করবে, লোকালি add করবে না
-        await push(ref(db,'history'),historyEntry);
 
         actionPanel.classList.remove('active');
         amountInput.value='';
+        remarkInput.value='';
+
       }catch(err){
         alert('Error: '+err.message);
       }finally{
@@ -344,6 +629,8 @@
         submitBtn.innerHTML=oldHtml;
       }
     });
+
+    setInitialFilterDates(); 
   </script>
 </body>
 </html>

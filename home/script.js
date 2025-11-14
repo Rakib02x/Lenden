@@ -100,6 +100,10 @@ State
 let ACCOUNTS = {}; // {accountNo: { Balance: number, ... }}
 let ACCOUNT_LIST = []; // [accountNo]
 
+function getTotalBalance(){
+    return ACCOUNT_LIST.reduce((s,a)=> s + Number(ACCOUNTS?.[a]?.Balance || 0), 0);
+}
+
 /*************************
 
 UI: Tabs / Sections
@@ -123,10 +127,10 @@ hideAllSections();
 (sections[tab]||[]).forEach(id=>$(id).classList.remove('hidden'));
 if (tab==='home') $('#navHome').classList.add('active');
 if (tab==='send') $('#navSend').classList.add('active');
+if (tab==='txns') loadAllTransactions(); 
 if (tab==='txns') $('#navTxns').classList.add('active');
 // special: when opening send or txns, ensure data up-to-date
 if (tab==='send') rebuildSendRowsIfEmpty();
-if (tab==='txns') loadAllTransactions();
 if (tab==='alltxns') loadAllAggregateTransactions();
 }
 
@@ -138,13 +142,19 @@ $('#btnAllTxns').addEventListener('click', ()=>{
 showTab('alltxns');
 });
 
+// 'পেছনে যান' বাটনের কার্যকারিতা
 $('#backHomeBtn').addEventListener('click', ()=>{
+// সকল ইনপুট ও ডিসপ্লে ক্লিয়ার
 $('#sendRows').innerHTML='';
 updateServiceAndTotals();
 $('#displayBox').textContent='';
-$('#targetNumber').value='';
+$('#targetNumber').value=''; // নাম্বার বক্স ক্লিয়ার
 notify($('#sendMsg'), '');
 showTab('home');
+// 'পাঠান' বাটন সচল করা হলো
+const btn = $('#sendNowBtn');
+btn.disabled = false;
+btn.innerHTML = btn.dataset.orig || 'পাঠান';
 });
 
 /*************************
@@ -262,12 +272,20 @@ valid.push({account: acc, amount: amt});
 return valid;
 }
 
+// পরিবর্তিত: সার্ভিস চার্জ ইনপুট ফিল্ড থেকে মান নেবে
 function updateServiceAndTotals(){
-const rows = getValidSendRows();
-const charge = rows.length * 0;
-const total = rows.reduce((s,r)=>s+Number(r.amount||0), 0);
-$('#serviceCharge').value = charge;
-$('#totalAmount').value = total;
+    const rows = getValidSendRows();
+    // সার্ভিস চার্জ ইনপুট ফিল্ড থেকে মান নেওয়া হচ্ছে
+    const manualCharge = Number($('#serviceCharge').value) || 0;
+    
+    // মোট এমাউন্ট (চার্জ ছাড়া)
+    const totalAmount = rows.reduce((s,r)=>s+Number(r.amount||0), 0);
+    
+    $('#serviceCharge').value = manualCharge;
+    $('#totalAmount').value = totalAmount;
+
+    // টোটাল অ্যামাউন্ট বা চার্জ পরিবর্তন হলে ডিসপ্লে আপডেট করা
+    buildDisplay(); 
 }
 
 function buildDisplay(){
@@ -285,6 +303,8 @@ $('#displayBox').textContent = lines.join('\n');
 
 $('#addRowBtn').addEventListener('click', ()=> addSendRow());
 $('#targetNumber').addEventListener('input', buildDisplay);
+// নতুন ইভেন্ট লিসেনার: সার্ভিস চার্জ পরিবর্তন হলে টোটাল আপডেট করা
+$('#serviceCharge').addEventListener('input', updateServiceAndTotals); 
 
 $('#copyDisplayBtn').addEventListener('click', async ()=>{
 try { await navigator.clipboard.writeText($('#displayBox').textContent || '');
@@ -303,8 +323,9 @@ btn.innerHTML = ' Processing...';
 btn.disabled = true;
 } else {
 isSending = false;
-btn.innerHTML = btn.dataset.orig || 'পাঠান';
-btn.disabled = false;
+// সফল বা ব্যর্থ যাই হোক, বাটন ডিসেবল থাকবে
+btn.innerHTML = 'পাঠান';
+btn.disabled = true; 
 }
 }
 
@@ -329,45 +350,86 @@ await setSendLoading(true);
 try {
 const dateStr = todayStr();
 const ts = Date.now();
-let totalCharge = 0;
-let totalAmount = 0;
+// সার্ভিস চার্জ ইনপুট ফিল্ড থেকে নেওয়া হচ্ছে
+const manualCharge = Number($('#serviceCharge').value) || 0; 
+let totalCharge = manualCharge; // মোট চার্জ এখন ম্যানুয়াল চার্জের সমান
+let totalAmount = 0; // মোট পাঠানো এমাউন্ট (চার্জ ছাড়া)
 const displayText = $('#displayBox').textContent || '';
 
-for (const r of rows){
-const totalDeduct = Number(r.amount) + 0; 
-totalCharge += 0;
-totalAmount += Number(r.amount);
+// 1. আগের মোট ব্যালেন্স সংরক্ষণ
+const previousTotalBalance = getTotalBalance();
+let totalDeductForAll = 0;
+const selectedAccounts = []; // নির্বাচিত অ্যাকাউন্টগুলির তালিকা
 
-const accRef = ref(db, `Account/${r.account}/Balance`);
+// ডিডাকশন লজিক: চার্জ সব একাউন্টের মধ্যে সমানভাবে ভাগ করা হচ্ছে
+const rowsCount = rows.length;
+const chargePerAccount = rowsCount > 0 ? totalCharge / rowsCount : 0; 
 
-const prevBalSnap = await get(accRef);
-const previousBalance = Number(prevBalSnap.val() || 0);
+for (let i = 0; i < rows.length; i++){
+    const r = rows[i];
+    
+    // প্রতিটি একাউন্টের নিজস্ব চার্জ
+    const currentCharge = chargePerAccount; 
+    
+    // মোট ডিডাকশন = পাঠানো এমাউন্ট + নিজস্ব চার্জ
+    const totalDeduct = Number(r.amount) + currentCharge; 
+    
+    totalAmount += Number(r.amount);
+    totalDeductForAll += totalDeduct;
+    selectedAccounts.push(r.account); 
 
-await runTransaction(accRef, (currentValue)=>{
-const cur = Number(currentValue||0);
-if (cur < totalDeduct) return cur; 
-return cur - totalDeduct;
-});
+    const accRef = ref(db, `Account/${r.account}/Balance`);
 
-const newBalSnap = await get(accRef); 
-const currentBalance = Number(newBalSnap.val()||0);
+    const prevBalSnap = await get(accRef);
+    const previousBalance = Number(prevBalSnap.val() || 0);
 
-ACCOUNTS[r.account] = { ...(ACCOUNTS[r.account]||{}), Balance: currentBalance }; 
+    await runTransaction(accRef, (currentValue)=>{
+        const cur = Number(currentValue||0);
+        if (cur < totalDeduct) return cur; 
+        return cur - totalDeduct;
+    });
 
-const txRef = push(ref(db, 'single_transaction')); 
-await set(txRef, { 
+    const newBalSnap = await get(accRef); 
+    const currentBalance = Number(newBalSnap.val()||0);
+
+    ACCOUNTS[r.account] = { ...(ACCOUNTS[r.account]||{}), Balance: currentBalance }; 
+
+    // 2. Account-specific transaction saving
+    const accountTxRef = push(ref(db, `Account/${r.account}/transaction`)); 
+    await set(accountTxRef, { 
+        number: target, 
+        account_number: r.account, 
+        amount: Number(r.amount), 
+        charge: currentCharge, // প্রতিটি একাউন্টের চার্জ
+        total_deducted: totalDeduct, 
+        date: dateStr, 
+        timestamp: ts,
+        previous_balance: previousBalance, 
+        current_balance: currentBalance 
+    }); 
+} 
+
+await loadAccounts(); // নতুন ব্যালেন্স রিলোড করা হলো
+const currentTotalBalance = getTotalBalance(); // নতুন মোট ব্যালেন্স 
+const accountsString = selectedAccounts.join(','); // কমা দিয়ে অ্যাকাউন্টগুলি যুক্ত করা হলো
+
+// 3. Single_transaction সেভিং (মোট ব্যালেন্সের হিসাব)
+const singleTxRef = push(ref(db, 'single_transaction')); 
+await set(singleTxRef, { 
     number: target, 
-    account_number: r.account, 
-    amount: Number(r.amount), 
-    charge: 0, 
-    total_deducted: totalDeduct, 
+    account_number: accountsString, // কমা যুক্ত অ্যাকাউন্টগুলি সেভ করা হলো
+    amount: totalAmount, // চার্জ ছাড়া মোট পাঠানো এমাউন্ট
+    charge: totalCharge, // ম্যানুয়াল চার্জ
+    total_deducted: totalDeductForAll, // মোট ডিডাকশন (এমাউন্ট + চার্জ)
     date: dateStr, 
     timestamp: ts,
-    previous_balance: previousBalance, 
-    current_balance: currentBalance 
+    previous_balance: previousTotalBalance, // মোট আগের ব্যালেন্স
+    current_balance: currentTotalBalance, // মোট নতুন ব্যালেন্স
+    display_text: displayText,
 }); 
-} 
-// Save aggregate into all_transaction 
+
+
+// 4. Save aggregate into all_transaction (for All Transactions Tab)
 const allRef = push(ref(db, 'all_transaction')); 
 await set(allRef, { 
     date: dateStr, 
@@ -375,7 +437,6 @@ await set(allRef, {
     display_text: displayText,
 }); 
 
-await loadAccounts(); 
 buildDisplay(); 
 notify($('#sendMsg'), '✅ সফলভাবে পাঠানো হয়েছে ও ট্রানজেকশন সেভ হয়েছে', 'success'); 
 
@@ -394,26 +455,31 @@ TRANSACTIONS VIEW (per-account)
 async function loadAllTransactions(){
 const all = [];
 
+// শুধুমাত্র 'single_transaction' থেকে ডেটা লোড করা হচ্ছে
 const snap = await get(ref(db, 'single_transaction')); 
 if (snap.exists()){
-const t = snap.val() || {};
-Object.keys(t).forEach(key=>{
-const v = t[key];
-all.push({
-id: key,
-account: v.account_number || '', 
-number: v.number || '',
-amount: Number(v.amount||0),
-charge: Number(v.charge||0),
-total: Number(v.total_deducted|| (Number(v.amount||0)+Number(v.charge||0))),
-date: v.date || (v.timestamp? epochToDmy(v.timestamp): ''),
-timestamp: Number(v.timestamp || ddmmyyyyToEpoch(v.date)) || 0,
-previous_balance: Number(v.previous_balance || 0), 
-current_balance: Number(v.current_balance || 0) 
-});
-});
-}
+    const t = snap.val() || {};
+    Object.keys(t).forEach(key=>{
+        const v = t[key];
+        
+        // শুধুমাত্র অ্যাকাউন্ট নাম্বার বা স্ট্রিংটি ব্যবহার করা হচ্ছে।
+        const accountDisplay = v.account_number;
 
+        all.push({
+            id: key,
+            account: accountDisplay, 
+            number: v.number || '',
+            amount: Number(v.amount||0),
+            charge: Number(v.charge||0),
+            total: Number(v.total_deducted|| (Number(v.amount||0)+Number(v.charge||0))),
+            date: v.date || (v.timestamp? epochToDmy(v.timestamp): ''),
+            timestamp: Number(v.timestamp || ddmmyyyyToEpoch(v.date)) || 0,
+            previous_balance: Number(v.previous_balance || 0), 
+            current_balance: Number(v.current_balance || 0) 
+        });
+    });
+}
+    
 // Sort reverse (latest first)
 all.sort((a,b)=> (b.timestamp)-(a.timestamp));
 window.ALL_TXNS = all;
@@ -433,9 +499,10 @@ tr.innerHTML = `<td>${r.date}</td> <td class="mono">${r.account}</td> <td class=
 tbody.appendChild(tr);
 });
 $('#txnCount').textContent = rows.length;
-const sumAmt = rows.reduce((s,x)=>s+x.amount,0);
+// ⭐ পরিবর্তিত: মোট এমাউন্ট হিসেবে 'মোট কাটা' (total) ব্যবহার করা হচ্ছে
+const sumTotalDeducted = rows.reduce((s,x)=>s+x.total,0);
 const sumChg = rows.reduce((s,x)=>s+x.charge,0);
-$('#summary').textContent = `মোট: ${rows.length} টি | টাকা: ${formatCurrency(sumAmt)} | চার্জ: ${formatCurrency(sumChg)}`;
+$('#summary').textContent = `মোট: ${rows.length} টি | টাকা: ${formatCurrency(sumTotalDeducted)} | চার্জ: ${formatCurrency(sumChg)}`;
 }
 
 function applyFilters(){
@@ -486,7 +553,7 @@ $('#allDateTo').value = dates.toYmd;
 applyAllFilters();
 }
 
-// ⭐ renderAllTxnTable - সমস্যা সমাধান করা হয়েছে
+// renderAllTxnTable
 function renderAllTxnTable(rows){
 const tbody = $('#allTxnTable tbody');
 tbody.innerHTML = '';
@@ -512,7 +579,7 @@ tbody.appendChild(tr);
 // DOM এ যুক্ত হওয়ার পর ইভেন্ট লিসেনার যোগ করা হচ্ছে
 const copyButton = tr.querySelector('.copy-btn');
 copyButton.addEventListener('click', async (e) => {
-    // ডিসপ্লে টেক্সট data-text অ্যাট্রিবিউট থেকে নেওয়া হচ্ছে
+    // ডিসপ্লে টেক্সট data-text অ্যাট্রিবিউউট থেকে নেওয়া হচ্ছে
     const textToCopy = e.currentTarget.closest('.display-cell').getAttribute('data-text');
 
     try {
@@ -530,7 +597,11 @@ copyButton.addEventListener('click', async (e) => {
 });
 
 $('#allTxnCount').textContent = rows.length;
-$('#allSummary').textContent = `মোট: ${rows.length} টি`;
+// ⭐ সংক্ষিপ্ত হিসাবে মোট কাটা যোগ করা
+const sumTotalDeductedAll = rows.reduce((s,x)=>s+x.total,0);
+const sumChargeAll = rows.reduce((s,x)=>s+x.charge,0);
+$('#allSummary').textContent = `মোট: ${rows.length} টি | টাকা: ${formatCurrency(sumTotalDeductedAll)} | চার্জ: ${formatCurrency(sumChargeAll)}`;
+
 }
 
 function applyAllFilters(){

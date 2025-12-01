@@ -367,3 +367,146 @@ body.light .spinner {
   box-shadow:0 8px 24px rgba(0,0,0,.12);
   z-index:40;
 }
+
+
+
+/* ⚙️ Simple Settings Panel */
+
+
+/* ⭐ নতুন স্টাইল: Modal Overlay */
+.modal {
+  position: fixed;
+  z-index: 200; 
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0,0,0,0.7); 
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background: var(--card);
+  padding: 20px;
+  border-radius: 16px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  margin: auto;
+}
+
+/* ⭐ ফাইনাল হিসেব কার্ডের স্টাইল */
+.final-account {
+  background: linear-gradient(180deg, #1f4251, #132a33) !important;
+  border: 1px solid #3b7c87 !important;
+  color: #b2f1ff !important;
+  box-shadow: 0 5px 15px rgba(27, 85, 99, 0.4) !important;
+}
+body.light .final-account {
+  background: linear-gradient(180deg, #e0f2f1, #c2e2e0) !important;
+  border: 1px solid #80cbc4 !important;
+  color: #004d40 !important;
+}
+
+.final-account .muted {
+  color: #a4e1eb !important;
+}
+body.light .final-account .muted {
+    color: #00796b !important;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ⭐ test kora hosse */
+.db-card {
+    background: var(--db-bg);
+    border: 1px solid var(--db-border);
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+.db-card .db-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 4px;
+}
+.db-card .db-value {
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: .2px;
+    color: var(--text);
+}
+.db-card .db-caption {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    line-height: 1.3;
+}
+/* db-card.final no longer needs to span full width */
+.db-card.final {
+    grid-column: auto; 
+    display: flex;
+    flex-direction: column;
+}
+.db-card.final .db-value {
+    font-size: 24px;
+}
+
+/* --- NEW: Modal Styles --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+.modal-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+.modal-content {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 20px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    transform: translateY(-20px);
+    transition: transform 0.3s ease;
+}
+.modal-overlay.open .modal-content {
+    transform: translateY(0);
+}
+
+/* Cash/Expense History Table Tweaks */
+.table.cash-history th:nth-child(2),
+.table.cash-history td:nth-child(2) {
+    text-align: right;
+}
+.table.cash-history th:nth-child(3),
+.table.cash-history td:nth-child(3) {
+    width: 35%; /* Remark Column width */
+}

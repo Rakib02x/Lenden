@@ -5,7 +5,7 @@ Firebase Initialization
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js";
 import {
-getDatabase, ref, child, get, set, update, push, runTransaction
+getDatabase, ref, child, get, set, update, push, runTransaction, onValue
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -52,6 +52,7 @@ return dt.getTime();
 const ddmmyyyyToEpoch = (dmy) => {
 const [dd, mm, yyyy] = (dmy||'').split('/').map(Number);
 if (!dd || !mm || !yyyy) return 0;
+// Note: Month is 0-indexed in JS Date object
 return new Date(yyyy, mm-1, dd).getTime();
 };
 
@@ -72,13 +73,16 @@ if (!msg) el.classList.remove('err','ok','warn');
 
 const getAutoFilterDates = () => {
     const today = new Date();
+    // এই মাসের ৩০ তারিখ থেকে গণনা শুরু হবে
     let start = new Date(today.getFullYear(), today.getMonth(), 30); 
 
     if (today.getDate() < 30) {
+        // যদি মাসের ৩০ তারিখের আগে হয়, তবে গত মাসের ৩০ তারিখ থেকে শুরু হবে
         start = new Date(today.getFullYear(), today.getMonth() - 1, 30);
     }
     
-    const end = new Date(start.getFullYear(), start.getMonth() + 1, 29);
+    // শেষ তারিখ হবে বর্তমান তারিখ
+    const end = new Date();
 
     const formatYmd = (d) => {
         const dd = String(d.getDate()).padStart(2, '0');
@@ -86,8 +90,19 @@ const getAutoFilterDates = () => {
         const yyyy = d.getFullYear();
         return `${yyyy}-${mm}-${dd}`;
     };
+    
+    const formatDmy = (d) => {
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth()+1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        return `${dd}/${mm}/${yyyy}`;
+    };
 
     return {
+        startEpoch: start.getTime(),
+        endEpoch: end.getTime(),
+        startDmy: formatDmy(start),
+        endDmy: formatDmy(end),
         fromYmd: formatYmd(start),
         toYmd: formatYmd(end),
     };
@@ -99,24 +114,41 @@ State
 *************************/
 let ACCOUNTS = {}; // {accountNo: { Balance: number, ... }}
 let ACCOUNT_LIST = []; // [accountNo]
+let ALL_SINGLE_TXNS = []; // single_transaction থেকে লোড করা সব ডেটা
+let ALL_CASH_IN = []; // cash থেকে লোড করা সব ডেটা
+let ALL_CASH_OUT = []; // cashout থেকে লোড করা সব ডেটা
 
 function getTotalBalance(){
     return ACCOUNT_LIST.reduce((s,a)=> s + Number(ACCOUNTS?.[a]?.Balance || 0), 0);
 }
+
+// ⭐ Dashboard State
+let DASHBOARD_STATE = {
+    todayTxnCount: 0, todayTxnAmount: 0,
+    yesterdayTxnCount: 0, yesterdayTxnAmount: 0,
+    last15TxnCount: 0, last15TxnAmount: 0,
+    monthlyTxnCount: 0, monthlyTxnAmount: 0,
+    monthlyCashIn: 0,
+    monthlyCashOut: 0,
+    monthlyStartDmy: '', monthlyEndDmy: '',
+    last15StartDmy: '', last15EndDmy: ''
+};
 
 /*************************
 
 UI: Tabs / Sections
 *************************/
 const sections = {
-home: ['#section-profile', '#section-accounts'],
+home: ['#section-profile', '#section-dashboard', '#section-accounts'],
 send: ['#section-send'],
 txns: ['#section-transactions'],
-alltxns: ['#section-alltransactions']
+alltxns: ['#section-alltransactions'],
+cashin: ['#section-cashin-history'],
+cashout: ['#section-cashout-history']
 };
 
 function hideAllSections(){
-['#section-profile','#section-accounts','#section-send','#section-transactions','#section-alltransactions'].forEach(id=>{
+['#section-profile','#section-dashboard','#section-accounts','#section-send','#section-transactions','#section-alltransactions', '#section-cashin-history', '#section-cashout-history'].forEach(id=>{
 const el = $(id); if(el) el.classList.add('hidden');
 });
 $$('.nav .nbtn').forEach(b=>b.classList.remove('active'));
@@ -127,11 +159,12 @@ hideAllSections();
 (sections[tab]||[]).forEach(id=>$(id).classList.remove('hidden'));
 if (tab==='home') $('#navHome').classList.add('active');
 if (tab==='send') $('#navSend').classList.add('active');
-if (tab==='txns') loadAllTransactions(); 
 if (tab==='txns') $('#navTxns').classList.add('active');
 // special: when opening send or txns, ensure data up-to-date
 if (tab==='send') rebuildSendRowsIfEmpty();
 if (tab==='alltxns') loadAllAggregateTransactions();
+if (tab==='txns') loadAllTransactions();
+if (tab==='home') loadDashboardData(); // হোম ট্যাবে আসলে ড্যাশবোর্ড লোড হবে
 }
 
 $('#navHome').addEventListener('click', ()=>showTab('home'));
@@ -156,6 +189,10 @@ const btn = $('#sendNowBtn');
 btn.disabled = false;
 btn.innerHTML = btn.dataset.orig || 'পাঠান';
 });
+
+// ক্যাশ ইন/আউট হিস্টরি থেকে ড্যাশবোর্ডে ফেরা
+$('#backToDashboardCashIn').addEventListener('click', ()=>showTab('home'));
+$('#backToDashboardCashOut').addEventListener('click', ()=>showTab('home'));
 
 /*************************
 
@@ -198,7 +235,265 @@ $('#totalBalance').textContent = formatCurrency(total);
 
 /*************************
 
-SEND MONEY: dynamic rows
+DASHBOARD LOGIC (NEW)
+*************************/
+
+// ডেটা লোড: single_transaction, cash, cashout
+async function loadDashboardData(){
+    // 1. Load single_transaction
+    const singleTxnSnap = await get(ref(db, 'single_transaction'));
+    ALL_SINGLE_TXNS = [];
+    if (singleTxnSnap.exists()){
+        const t = singleTxnSnap.val() || {};
+        Object.keys(t).forEach(key=>{
+            const v = t[key];
+            const dateEpoch = Number(v.timestamp || ddmmyyyyToEpoch(v.date)) || 0;
+            if (dateEpoch) ALL_SINGLE_TXNS.push({ amount: Number(v.total_deducted || (Number(v.amount||0)+Number(v.charge||0))), date: v.date, timestamp: dateEpoch });
+        });
+    }
+    // Sort reverse (latest first)
+    ALL_SINGLE_TXNS.sort((a,b)=> (b.timestamp)-(a.timestamp));
+    
+    // 2. Load cash
+    const cashInSnap = await get(ref(db, 'cash'));
+    ALL_CASH_IN = [];
+    if (cashInSnap.exists()){
+        const t = cashInSnap.val() || {};
+        Object.keys(t).forEach(key=>{
+            const v = t[key];
+            const dateEpoch = ddmmyyyyToEpoch(v.date) || 0;
+            if (dateEpoch) ALL_CASH_IN.push({ amount: Number(v.amount || 0), date: v.date, timestamp: dateEpoch, note: v.note || '' });
+        });
+    }
+    ALL_CASH_IN.sort((a,b)=> (b.timestamp)-(a.timestamp));
+    
+    // 3. Load cashout
+    const cashOutSnap = await get(ref(db, 'cashout'));
+    ALL_CASH_OUT = [];
+    if (cashOutSnap.exists()){
+        const t = cashOutSnap.val() || {};
+        Object.keys(t).forEach(key=>{
+            const v = t[key];
+            const dateEpoch = ddmmyyyyToEpoch(v.date) || 0;
+            if (dateEpoch) ALL_CASH_OUT.push({ amount: Number(v.amount || 0), date: v.date, timestamp: dateEpoch, note: v.note || '' });
+        });
+    }
+    ALL_CASH_OUT.sort((a,b)=> (b.timestamp)-(a.timestamp));
+    
+    updateDashboardDisplay();
+}
+
+// ড্যাশবোর্ড ডিসপ্লে আপডেট
+function updateDashboardDisplay(){
+    const today = new Date();
+    // আজকের তারিখ
+    const todayDmy = epochToDmy(today.getTime());
+    const todayStartEpoch = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    
+    // গতকালের তারিখ
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const yesterdayDmy = epochToDmy(yesterday.getTime());
+    const yesterdayStartEpoch = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate()).getTime();
+    
+    // ১৫ দিন আগের তারিখ
+    const fifteenDaysAgo = new Date(today);
+    fifteenDaysAgo.setDate(today.getDate() - 14);
+    const last15StartEpoch = new Date(fifteenDaysAgo.getFullYear(), fifteenDaysAgo.getMonth(), fifteenDaysAgo.getDate()).getTime();
+    const last15StartDmy = epochToDmy(fifteenDaysAgo.getTime());
+
+
+    // মাসিক শুরুর তারিখ (আগের মাসের ৩০ তারিখ বা এই মাসের ৩০ তারিখ)
+    const monthlyDates = getAutoFilterDates();
+    const monthlyStartEpoch = monthlyDates.startEpoch;
+    const monthlyStartDmy = monthlyDates.startDmy;
+    const monthlyEndDmy = monthlyDates.endDmy; // বর্তমান তারিখ
+
+    // 1. লেনদেন ফিল্টারিং
+    let todayTxns = { count: 0, amount: 0 };
+    let yesterdayTxns = { count: 0, amount: 0 };
+    let last15Txns = { count: 0, amount: 0 };
+    let monthlyTxns = { count: 0, amount: 0 };
+    
+    for (const txn of ALL_SINGLE_TXNS){
+        // ট্রানজেকশনের তারিখের শুধু দিন অংশ
+        const txnDayEpoch = new Date(new Date(txn.timestamp).getFullYear(), new Date(txn.timestamp).getMonth(), new Date(txn.timestamp).getDate()).getTime();
+
+        // আজকের লেনদেন
+        if (txnDayEpoch >= todayStartEpoch) {
+            todayTxns.count++; todayTxns.amount += txn.amount;
+        }
+        // গতকালের লেনদেন
+        if (txnDayEpoch >= yesterdayStartEpoch && txnDayEpoch < todayStartEpoch) {
+            yesterdayTxns.count++; yesterdayTxns.amount += txn.amount;
+        }
+        // গত ১৫ দিনের লেনদেন (আজ থেকে ১৫ দিন আগে পর্যন্ত)
+        if (txnDayEpoch >= last15StartEpoch) {
+            last15Txns.count++; last15Txns.amount += txn.amount;
+        }
+        // মাসিক লেনদেন (৩০ তারিখ থেকে)
+        if (txnDayEpoch >= monthlyStartEpoch) {
+            monthlyTxns.count++; monthlyTxns.amount += txn.amount;
+        }
+    }
+    
+    // 2. ক্যাশ ইন/আউট ফিল্টারিং
+    let monthlyCashIn = 0;
+    let monthlyCashOut = 0;
+    
+    for (const cash of ALL_CASH_IN){
+        if (cash.timestamp >= monthlyStartEpoch) monthlyCashIn += cash.amount;
+    }
+    
+    for (const cash of ALL_CASH_OUT){
+        if (cash.timestamp >= monthlyStartEpoch) monthlyCashOut += cash.amount;
+    }
+
+    // 3. ড্যাশবোর্ড স্টেটে ডেটা সংরক্ষণ
+    DASHBOARD_STATE = {
+        todayTxnCount: todayTxns.count, todayTxnAmount: todayTxns.amount,
+        yesterdayTxnCount: yesterdayTxns.count, yesterdayTxnAmount: yesterdayTxns.amount,
+        last15TxnCount: last15Txns.count, last15TxnAmount: last15Txns.amount,
+        monthlyTxnCount: monthlyTxns.count, monthlyTxnAmount: monthlyTxns.amount,
+        monthlyCashIn: monthlyCashIn,
+        monthlyCashOut: monthlyCashOut,
+        monthlyStartDmy: monthlyStartDmy, monthlyEndDmy: monthlyEndDmy,
+        last15StartDmy: last15StartDmy, last15EndDmy: todayDmy 
+    };
+
+    // 4. UI রেন্ডারিং
+    
+    // লেনদেন
+    
+    $('#today-txns-count').textContent = `${DASHBOARD_STATE.todayTxnCount} টি | তারিখ:${todayDmy}`;
+    $('#today-txns-amount').textContent = formatCurrency(DASHBOARD_STATE.todayTxnAmount);
+ 
+    $('#yesterday-txns-count').textContent = `${DASHBOARD_STATE.yesterdayTxnCount} টি | তারিখ: ${yesterdayDmy}`;
+    $('#yesterday-date').textContent = yesterdayDmy;
+    $('#yesterday-txns-amount').textContent = formatCurrency(DASHBOARD_STATE.yesterdayTxnAmount);
+
+    $('#last15-txns-count').textContent = `${DASHBOARD_STATE.last15TxnCount} টি | ${DASHBOARD_STATE.last15StartDmy} - ${DASHBOARD_STATE.last15EndDmy}`;
+    $('#last15-date-range').textContent = `${DASHBOARD_STATE.last15StartDmy} - ${DASHBOARD_STATE.last15EndDmy}`;
+    $('#last15-txns-amount').textContent = formatCurrency(DASHBOARD_STATE.last15TxnAmount);
+
+   $('#monthly-txns-count').textContent = `${DASHBOARD_STATE.monthlyTxnCount} টি | ${DASHBOARD_STATE.monthlyStartDmy} - ${DASHBOARD_STATE.monthlyEndDmy}`;
+   $('#monthly-date-range').textContent = `${DASHBOARD_STATE.monthlyStartDmy} - ${DASHBOARD_STATE.monthlyEndDmy}`;
+   $('#monthly-txns-amount').textContent = formatCurrency(DASHBOARD_STATE.monthlyTxnAmount);
+
+
+    // ক্যাশ ইন/আউট
+    $('#cashin-date-range').textContent = `${DASHBOARD_STATE.monthlyStartDmy} - ${DASHBOARD_STATE.monthlyEndDmy}`;
+    $('#cashin-amount').textContent = formatCurrency(DASHBOARD_STATE.monthlyCashIn);
+    
+    $('#cashout-date-range').textContent = `${DASHBOARD_STATE.monthlyStartDmy} - ${DASHBOARD_STATE.monthlyEndDmy}`;
+    $('#cashout-amount').textContent = formatCurrency(DASHBOARD_STATE.monthlyCashOut);
+    
+    // ফাইনাল হিসেব
+    const finalResult = DASHBOARD_STATE.monthlyCashIn - DASHBOARD_STATE.monthlyTxnAmount - DASHBOARD_STATE.monthlyCashOut;
+    $('#final-account-result').textContent = formatCurrency(finalResult);
+    $('#final-account-breakdown').textContent = `${formatCurrency(DASHBOARD_STATE.monthlyCashIn)} (যোগ) - ${formatCurrency(DASHBOARD_STATE.monthlyTxnAmount)} (লেনদেন) - ${formatCurrency(DASHBOARD_STATE.monthlyCashOut)} (খরচ)`;
+    
+    // ক্যাশ ইন/আউট হিস্টরি রেন্ডার
+    renderCashHistory('cash', ALL_CASH_IN.filter(c => c.timestamp >= monthlyStartEpoch));
+    renderCashHistory('cashout', ALL_CASH_OUT.filter(c => c.timestamp >= monthlyStartEpoch));
+}
+
+// ⭐ ক্যাশ ইন/আউট হিস্টরি রেন্ডারিং
+function renderCashHistory(type, rows) {
+    const tbody = $(`#${type === 'cash' ? 'cashInTable' : 'cashOutTable'} tbody`);
+    tbody.innerHTML = '';
+    rows.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${r.date}</td> <td class="mono">${formatCurrency(r.amount)}</td> <td>${r.note}</td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+// ⭐ ক্যাশ ইন/আউট ডিসপ্লে ক্লিক হ্যান্ডলার
+$('#cashin-amount-container').addEventListener('click', ()=>{
+    renderCashHistory('cash', ALL_CASH_IN); // সব ডেটা দেখাবে
+    showTab('cashin');
+});
+$('#cashout-amount-container').addEventListener('click', ()=>{
+    renderCashHistory('cashout', ALL_CASH_OUT); // সব ডেটা দেখাবে
+    showTab('cashout');
+});
+
+// ⭐ ক্যাশ ইন মডাল লজিক
+$('#addCashInBtn').addEventListener('click', ()=>{
+    $('#cashInModal').classList.remove('hidden');
+    $('#cashInDate').value = todayStr();
+    $('#cashInAmount').value = '';
+    $('#cashInNote').value = '';
+    notify($('#cashInMsg'), '');
+});
+$('#closeCashInModal').addEventListener('click', ()=> $('#cashInModal').classList.add('hidden'));
+
+$('#saveCashInBtn').addEventListener('click', async ()=>{
+    const amount = Number($('#cashInAmount').value || 0);
+    const date = $('#cashInDate').value?.trim();
+    const note = $('#cashInNote').value?.trim() || 'কোন নোট নেই';
+
+    if (amount <= 0) { notify($('#cashInMsg'), 'সঠিক এমাউন্ট দিন', 'error'); return; }
+    if (!date || !date.match(/^\d{2}\/\d{2}\/\d{4}$/)) { notify($('#cashInMsg'), 'সঠিক তারিখ দিন (DD/MM/YYYY)', 'error'); return; }
+
+    try {
+        const cashInRef = push(ref(db, 'cash'));
+        await set(cashInRef, {
+            amount: amount,
+            date: date,
+            note: note
+        });
+        
+        notify($('#cashInMsg'), '✅ সফলভাবে ক্যাশ যোগ হয়েছে', 'success');
+        $('#cashInModal').classList.add('hidden');
+        loadDashboardData(); // ড্যাশবোর্ড রিলোড
+        
+    } catch(e){
+        console.error(e);
+        notify($('#cashInMsg'), '❌ সমস্যা হয়েছে। পরে আবার চেষ্টা করুন', 'error');
+    }
+});
+
+// ⭐ ক্যাশ আউট মডাল লজিক
+$('#addCashOutBtn').addEventListener('click', ()=>{
+    $('#cashOutModal').classList.remove('hidden');
+    $('#cashOutDate').value = todayStr();
+    $('#cashOutAmount').value = '';
+    $('#cashOutNote').value = '';
+    notify($('#cashOutMsg'), '');
+});
+$('#closeCashOutModal').addEventListener('click', ()=> $('#cashOutModal').classList.add('hidden'));
+
+$('#saveCashOutBtn').addEventListener('click', async ()=>{
+    const amount = Number($('#cashOutAmount').value || 0);
+    const date = $('#cashOutDate').value?.trim();
+    const note = $('#cashOutNote').value?.trim() || 'কোন নোট নেই';
+
+    if (amount <= 0) { notify($('#cashOutMsg'), 'সঠিক এমাউন্ট দিন', 'error'); return; }
+    if (!date || !date.match(/^\d{2}\/\d{2}\/\d{4}$/)) { notify($('#cashOutMsg'), 'সঠিক তারিখ দিন (DD/MM/YYYY)', 'error'); return; }
+
+    try {
+        const cashOutRef = push(ref(db, 'cashout'));
+        await set(cashOutRef, {
+            amount: amount,
+            date: date,
+            note: note
+        });
+        
+        notify($('#cashOutMsg'), '✅ সফলভাবে খরচ যোগ হয়েছে', 'success');
+        $('#cashOutModal').classList.add('hidden');
+        loadDashboardData(); // ড্যাশবোর্ড রিলোড
+        
+    } catch(e){
+        console.error(e);
+        notify($('#cashOutMsg'), '❌ সমস্যা হয়েছে। পরে আবার চেষ্টা করুন', 'error');
+    }
+});
+
+/*************************
+
+SEND MONEY: dynamic rows (UNMODIFIED LOGIC)
 *************************/
 const sendRowsEl = $('#sendRows');
 
@@ -213,7 +508,7 @@ const wrap = document.createElement('div');
 wrap.className = 'item2';
 wrap.dataset.id = rowId;
 const options = ACCOUNT_LIST.map(a=>`<option value="${a}">${a}</option>`).join('');
-wrap.innerHTML = `<div style="flex:1; min-width:200px;"> <label>একাউন্ট</label> <select class="sr-account"> <option value="">একটি নির্বাচন করুন</option> ${options} </select> <div class="muted" style="margin-top:6px">Available: <span class="sr-avl mono">0</span></div> <div class="err sr-err"></div> </div> <div style="width:160px"> <label>এমাউন্ট</label> <input class="sr-amt" type="tel" inputmode="numeric" pattern="[0-9]*" placeholder="0" /> </div> <div class="row" style="gap:6px"> <button class="btn ghost sr-del">মুছুন</button> </div>`;
+wrap.innerHTML = `<div style="flex:1; min-width:200px;"> <label>একাউন্ট</label> <select class="sr-account"> <option value="">একটি নির্বাচন করুন</option> ${options} </select> <div class="muted" style="margin-top:6px;margin-bottom:10px">Available: <span class="sr-avl mono">0</span></div> <div class="err sr-err"></div> </div> <div style="width:160px"> <label>এমাউন্ট</label> <input class="sr-amt" type="tel" inputmode="numeric" pattern="[0-9]*" placeholder="0" /> </div> <div class="row" style="gap:6px"> <button class="btn ghost sr-del">মুছুন</button> </div>`;
 
 if (pref.account) wrap.querySelector('.sr-account').value = pref.account;
 if (pref.amount) wrap.querySelector('.sr-amt').value = pref.amount;
@@ -439,6 +734,7 @@ await set(allRef, {
 
 buildDisplay(); 
 notify($('#sendMsg'), '✅ সফলভাবে পাঠানো হয়েছে ও ট্রানজেকশন সেভ হয়েছে', 'success'); 
+loadDashboardData(); // ড্যাশবোর্ড আপডেট করা হলো
 
 } catch (e){
 console.error(e);
@@ -450,7 +746,7 @@ await setSendLoading(false);
 
 /*************************
 
-TRANSACTIONS VIEW (per-account)
+TRANSACTIONS VIEW (per-account) (UNMODIFIED LOGIC)
 *************************/
 async function loadAllTransactions(){
 const all = [];
@@ -526,7 +822,7 @@ $('#searchBox').addEventListener('input', applyFilters);
 
 /*************************
 
-ALL_TRANSACTIONS (aggregate) view
+ALL_TRANSACTIONS (aggregate) view (UNMODIFIED LOGIC)
 *************************/
 async function loadAllAggregateTransactions(){
 const snap = await get(ref(db, 'all_transaction'));
@@ -622,7 +918,7 @@ $('#allSearchBox').addEventListener('input', applyAllFilters);
 
 /*************************
 
-Settings
+Settings (UNMODIFIED LOGIC)
 *************************/
 $('#btnSettings').addEventListener('click', ()=>{
 $('#settingsPanel').classList.toggle('hidden');
@@ -638,7 +934,10 @@ Init
 $('#addRowBtn').addEventListener('click', ()=>{}); // placeholder to keep order
 
 await loadAccounts();
+// ⭐ প্রাথমিক অবস্থায় ড্যাশবোর্ড ডেটা লোড করা
+await loadDashboardData(); 
 showTab('home');
+
 
 document.getElementById("help").addEventListener("click", function() {
 // + না দিয়ে দেশ কোড সহ নম্বর দিন
@@ -653,4 +952,24 @@ window.location.href = 'wallet.html';
 
 document.getElementById('sim').addEventListener('click', function () {
 window.location.href = 'sim.html';
+});
+
+// ⭐ Firebase-এর 'cash' এবং 'cashout' ফোল্ডারে লাইভ লিসেনার যুক্ত করা হলো
+onValue(ref(db, 'cash'), (snapshot) => {
+    if (snapshot.exists()) {
+        loadDashboardData();
+    }
+});
+
+onValue(ref(db, 'cashout'), (snapshot) => {
+    if (snapshot.exists()) {
+        loadDashboardData();
+    }
+});
+
+// ⭐ Firebase-এর 'single_transaction' ফোল্ডারে লাইভ লিসেনার যুক্ত করা হলো
+onValue(ref(db, 'single_transaction'), (snapshot) => {
+    if (snapshot.exists()) {
+        loadDashboardData();
+    }
 });

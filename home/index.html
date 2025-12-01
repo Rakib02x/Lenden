@@ -14,7 +14,6 @@
         <div class="row between">
           <div>
             <div class="title">লেনদেন প্রবাসী</div>
-            <div class="subtitle">আর এস ডিজিটাল পার্সোনাল ডাটা সার্ভার</div>
           </div>
           <div class="pill">Verified</div>
         </div>
@@ -28,6 +27,94 @@
         </div>
       </div>
 
+      
+    </section>
+
+    <section id="section-dashboard" style="margin-top: 15px;">
+      <div class="card">
+        <div class="title">ড্যাশবোর্ড</div>
+        
+        <div style="height:10px"></div>
+        
+        <div class="grid cols-2" style="grid-template-columns: 1fr 1fr; gap:10px;">
+
+           <div class="db-card">
+              <div class="db-title">আজকের লেনদেন</div>
+              <div class="db-value mono" id="today-txns-amount">0 ৳</div>
+              <div class="db-caption" id="today-txns-count">0 টি | তারিখ: -</div> 
+            </div>
+
+            <div class="db-card">
+              <div class="db-title">গতকাল লেনদেন</div>
+              <div class="db-value mono" id="yesterday-txns-amount">0 ৳</div>
+              <div class="db-caption" id="yesterday-txns-count">0 টি | তারিখ: - </div> 
+            </div>
+
+            <div class="db-card">
+              <div class="db-title">গত ১৫ দিনের লেনদেন</div>
+              <div class="db-value mono" id="last15-txns-amount">0 ৳</div>
+              <div class="db-caption" id="last15-txns-count">0 টি | তারিখ: -</div>
+            </div>
+
+            <div class="db-card">
+              <div class="db-title">এই মাসের লেনদেন</div>
+              <div class="db-value mono" id="monthly-txns-amount">0 ৳</div>
+              <div class="db-caption" id="monthly-txns-count">0 টি | তারিখ: -</div>
+            </div>
+
+            <div style="display:none;">
+              <span id="yesterday-date"></span>
+              <span id="last15-date-range"></span>
+              <span id="monthly-date-range"></span>
+           </div>
+          
+        </div>
+
+        <div style="height:14px"></div>
+
+        <div class="grid" style="gap:10px;">
+          <div class="dashboard-item card" style="padding:10px;">
+            <div class="row between">
+              <div class="muted">মোট ক্যাশ যোগ</div>
+              <button id="addCashInBtn" class="btn primary" style="padding: 6px 10px;">ক্যাশ যোগ</button>
+            </div>
+            <div id="cashin-amount-container" style="cursor:pointer;" data-section="cashin-history">
+                <div id="cashin-amount" class="balance mono" style="font-size:24px;">0 ৳</div>
+            </div>
+            <div id="cashin-note" class="muted" style="font-size:12px;"><span id="cashin-date-range"></span></div>
+          </div>
+
+          <div class="dashboard-item card" style="padding:10px;">
+            <div class="row between">
+              <div class="muted">মোট খরচ</div>
+              <button id="addCashOutBtn" class="btn danger" style="padding: 6px 10px;">খরচ যোগ</button>
+            </div>
+            <div id="cashout-amount-container" style="cursor:pointer;" data-section="cashout-history">
+                <div id="cashout-amount" class="balance mono" style="font-size:24px;">0 ৳</div>
+            </div>
+            <div id="cashout-note" class="muted" style="font-size:12px;"><span id="cashout-date-range"></span></div>
+          </div>
+
+          <div class="dashboard-item card final-account" style="padding:16px; background: #1c363d; border-color: #3b7c87; color: #b2f1ff;">
+            <div class="muted" style="color:#b2f1ff;">ফাইনাল হিসেব</div>
+            <div id="final-account-result" class="balance mono" style="font-size:30px; color: #fff;">0 ৳</div>
+            <div id="final-account-breakdown" class="muted" style="font-size:14px; margin-top: 5px; color: #a4e1eb;">(যোগ - লেনদেন - খরচ)</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+    
+    <section id="section-accounts" style="margin-top: 15px;" class="card">
+      <div class="row between" style="margin-bottom: 10px;" >
+        <div class="title">একাউন্ট সমূহ</div>
+        <span class="badge" id="accountCount">0 একাউন্ট</span>
+      </div>
+      <div class="list" id="accountsList"></div>
+
+      <div style="height:10px"></div>
+
+
       <div class="card">
         <div class="title">সকল সেবা সূমহ্</div>
         <div class="subtitle">নিচের অপশন থেকে যেকোনটি নির্বাচন করুন</div>
@@ -38,16 +125,13 @@
           <button id="btnSettings" class="btn ghost">সেটিংস</button>
           <button id="help" class="btn ghost">হেল্প</button>
         </div>
-      </div>
+       </div>
+
+
+
     </section>
 
-    <section id="section-accounts" style="margin-top: 15px;" class="card">
-      <div class="row between" style="margin-bottom: 10px;" >
-        <div class="title">একাউন্ট সমূহ</div>
-        <span class="badge" id="accountCount">0 একাউন্ট</span>
-      </div>
-      <div class="list" id="accountsList"></div>
-    </section>
+    
 
     <section id="section-send" class="card hidden">
       <div class="title">টাকা পাঠান</div>
@@ -60,7 +144,7 @@
 
       <div style="height:10px"></div>
       <div class="row between">
-        <div class="subtitle">একাধিক একাউন্ট থেকে এমাউন্ট দিন</div>
+        <div class="subtitle"></div>
         <button id="addRowBtn" class="btn">+ আরেকটি একাউন্ট</button>
       </div>
       <div style="height:6px"></div>
@@ -82,7 +166,7 @@
 
       <div style="height:14px"></div>
       <div>
-        <label>ডিসপ্লে (কপি করার জন্য)</label>
+        <label>ডিসপ্লে</label>
         <div id="displayBox" class="copy-area mono"></div>
         <div class="row" style="margin-top:8px">
           <button id="copyDisplayBtn" class="btn">কপি</button>
@@ -188,6 +272,44 @@
       </div>
     </section>
 
+    <section id="section-cashin-history" class="card hidden">
+      <div class="row between" style="margin-bottom: 10px;">
+        <div class="title">মোট ক্যাশ যোগের ইতিহাস</div>
+        <button id="backToDashboardCashIn" class="btn ghost">ড্যাশবোর্ডে ফিরে যান</button>
+      </div>
+      <div style="overflow:auto">
+        <table class="table" id="cashInTable">
+          <thead>
+            <tr>
+              <th>তারিখ</th>
+              <th>এমাউন্ট</th>
+              <th>নোট</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="section-cashout-history" class="card hidden">
+      <div class="row between" style="margin-bottom: 10px;">
+        <div class="title">মোট খরচের ইতিহাস</div>
+        <button id="backToDashboardCashOut" class="btn ghost">ড্যাশবোর্ডে ফিরে যান</button>
+      </div>
+      <div style="overflow:auto">
+        <table class="table" id="cashOutTable">
+          <thead>
+            <tr>
+              <th>তারিখ</th>
+              <th>এমাউন্ট</th>
+              <th>নোট</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
   </div>
 
   <div id="settingsPanel" class="settings-panel hidden">
@@ -221,6 +343,49 @@
       </button>
     </div>
   </div>
+
+  <div id="cashInModal" class="modal hidden">
+    <div class="modal-content card">
+      <div class="title">ক্যাশ যোগ করুন</div>
+      <div style="height:10px"></div>
+      <label for="cashInAmount">এমাউন্ট (৳)</label>
+      <input id="cashInAmount" type="number" placeholder="0" />
+      <div style="height:10px"></div>
+      <label for="cashInDate">তারিখ (dd/mm/yyyy)</label>
+      <input id="cashInDate" type="text" placeholder="DD/MM/YYYY" readonly />
+      <div style="height:10px"></div>
+      <label for="cashInNote">নোট/বিবরণ</label>
+      <textarea id="cashInNote" placeholder="সংক্ষিপ্ত নোট"></textarea>
+      <div style="height:14px"></div>
+      <div class="row">
+        <button id="saveCashInBtn" class="btn primary">যোগ করুন</button>
+        <button id="closeCashInModal" class="btn ghost">বাতিল</button>
+      </div>
+      <div id="cashInMsg" class="muted" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <div id="cashOutModal" class="modal hidden">
+    <div class="modal-content card">
+      <div class="title">খরচ যোগ করুন</div>
+      <div style="height:10px"></div>
+      <label for="cashOutAmount">এমাউন্ট (৳)</label>
+      <input id="cashOutAmount" type="number" placeholder="0" />
+      <div style="height:10px"></div>
+      <label for="cashOutDate">তারিখ (dd/mm/yyyy)</label>
+      <input id="cashOutDate" type="text" placeholder="DD/MM/YYYY" readonly />
+      <div style="height:10px"></div>
+      <label for="cashOutNote">নোট/বিবরণ</label>
+      <textarea id="cashOutNote" placeholder="সংক্ষিপ্ত নোট"></textarea>
+      <div style="height:14px"></div>
+      <div class="row">
+        <button id="saveCashOutBtn" class="btn danger">যোগ করুন</button>
+        <button id="closeCashOutModal" class="btn ghost">বাতিল</button>
+      </div>
+      <div id="cashOutMsg" class="muted" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
 
   <script type="module" src="script.js"></script>
 </body>

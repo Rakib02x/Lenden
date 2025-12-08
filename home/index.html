@@ -135,13 +135,28 @@
 
     <section id="section-send" class="card hidden">
       <div class="title">টাকা পাঠান</div>
+      <div style="margin-top:10px">
+        <label>টাকা পাঠানোর ধরণ</label>
+        <div class="row" id="serviceSelection" style="gap:15px; margin-top:6px;">
+            <label><input type="radio" name="sendService" value="বিকাশ" checked> বিকাশ</label>
+            <label><input type="radio" name="sendService" value="রিচার্জ"> রিচার্জ</label>
+        </div>
+      </div>
       <div class="grid" style="margin-top:10px">
         <div>
-          <label>যে নাম্বারে টাকা পাঠাবেন (বিকাশ/নগদ ইত্যাদি)</label>
+          <label id="targetNumberLabel">বিকাশ নাম্বার দিন</label>
           <input id="targetNumber" placeholder="01XXXXXXXXX" inputmode="numeric" pattern="[0-9]*" />
         </div>
       </div>
 
+      <div style="margin-top:15px">
+          <label>ব্রাঞ্চ সিলেক্ট করুন</label>
+          
+          <div class="row" id="branchSelection" style="margin-top: 8px;">
+              <button id="branchJohor" class="btn primary branch-rate-btn" data-branch="bdt" data-rate="0">Johor- 0.00৳</button>
+              <button id="branchPerak" class="btn ghost branch-rate-btn" data-branch="perak_bdt" data-rate="0">Perak- 0.00৳</button>
+          </div>
+      </div>
       <div style="height:10px"></div>
       <div class="row between">
         <div class="subtitle"></div>
@@ -257,8 +272,12 @@
           <thead>
             <tr>
               <th>তারিখ</th>
+              <th>নম্বর</th>
+              <th>ডেডাকটেড BDT</th>
+              <th>রেট (৳)</th>
+              <th>চার্জ RM</th>
+              <th>মোট RM</th>
               <th>ডিসপ্ল</th>
-                            
             </tr>
           </thead>
           <tbody></tbody>
@@ -268,7 +287,7 @@
       <div style="height:10px"></div>
       <div class="row between">
         <div class="subtitle">সংক্ষিপ্ত হিসাব (ফিল্টারকৃত)</div>
-        <div id="allSummary" class="badge">মোট: 0 টি | টাকা: 0 | চার্জ: 0</div>
+        <div id="allSummary" class="badge" style="white-space: pre-wrap;">মোট: 0 টি | ডেডাকটেড BDT: 0 ৳ | চার্জ RM: 0.00 | মোট RM: 0.00</div>
       </div>
     </section>
 

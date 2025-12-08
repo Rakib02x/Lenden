@@ -118,6 +118,13 @@ let ALL_SINGLE_TXNS = []; // single_transaction থেকে লোড করা
 let ALL_CASH_IN = []; // cash থেকে লোড করা সব ডেটা
 let ALL_CASH_OUT = []; // cashout থেকে লোড করা সব ডেটা
 
+// --- NEW STATE ---
+let RATES = { bdt: 0, perak_bdt: 0 }; // Firebase থেকে লোড করা রেট
+let SELECTED_RATE_KEY = 'bdt'; // ডিফল্ট Johor (bdt)
+let SELECTED_SERVICE = 'বিকাশ'; // ডিফল্ট বিকাশ
+// --- END NEW STATE ---
+
+
 function getTotalBalance(){
     return ACCOUNT_LIST.reduce((s,a)=> s + Number(ACCOUNTS?.[a]?.Balance || 0), 0);
 }
@@ -196,6 +203,93 @@ $('#backToDashboardCashOut').addEventListener('click', ()=>showTab('home'));
 
 /*************************
 
+Load Rates (NEW)
+*************************/
+async function loadRates() {
+    try {
+        const snap = await get(ref(db, 'rate'));
+        if (snap.exists()) {
+            RATES = snap.val() || { bdt: 0, perak_bdt: 0 };
+        } else {
+             RATES = { bdt: 0, perak_bdt: 0 };
+        }
+    } catch (e) {
+        console.error("Error loading rates:", e);
+        RATES = { bdt: 0, perak_bdt: 0 };
+    }
+    renderBranchRates();
+}
+
+// রেন্ডার করার জন্য নতুন ফাংশন
+function renderBranchRates(){
+    const johorRate = Number(RATES.bdt) || 0;
+    const perakRate = Number(RATES.perak_bdt) || 0;
+
+    const jBtn = $('#branchJohor');
+    const pBtn = $('#branchPerak');
+
+    jBtn.textContent = `Johor- ${johorRate.toFixed(2)}৳`;
+    jBtn.dataset.rate = johorRate;
+    
+    pBtn.textContent = `Perak- ${perakRate.toFixed(2)}৳`;
+    pBtn.dataset.rate = perakRate;
+
+    // নিশ্চিত করা যে বর্তমানে সিলেক্ট করা রেটটি UI তে প্রতিফলিত হচ্ছে
+    // যদি ডিফল্ট রেট (bdt) সেট করা না থাকে, তবে প্রথম পাওয়া রেটটি সিলেক্ট করা
+    if(johorRate > 0 && perakRate === 0) SELECTED_RATE_KEY = 'bdt';
+    else if(johorRate === 0 && perakRate > 0) SELECTED_RATE_KEY = 'perak_bdt';
+    else if(johorRate > 0 && perakRate > 0 && !['bdt', 'perak_bdt'].includes(SELECTED_RATE_KEY)) SELECTED_RATE_KEY = 'bdt';
+
+
+    if (SELECTED_RATE_KEY === 'bdt') {
+        jBtn.classList.add('primary');
+        jBtn.classList.remove('ghost');
+        pBtn.classList.add('ghost');
+        pBtn.classList.remove('primary');
+    } else {
+        pBtn.classList.add('primary');
+        pBtn.classList.remove('ghost');
+        jBtn.classList.add('ghost');
+        jBtn.classList.remove('primary');
+    }
+    
+    updateServiceAndTotals();
+}
+
+// ব্রাঞ্চ নির্বাচন হ্যান্ডলার
+function handleBranchSelection(e) {
+    const target = e.target.closest('.branch-rate-btn');
+    if (!target) return;
+
+    const key = target.dataset.branch;
+    if (key !== SELECTED_RATE_KEY) {
+        // সব বাটন থেকে active ক্লাস সরিয়ে নতুন বাটনে যোগ করা হলো
+        document.querySelectorAll('.branch-rate-btn').forEach(btn => {
+            btn.classList.remove('primary');
+            btn.classList.add('ghost');
+        });
+        target.classList.add('primary');
+        target.classList.remove('ghost');
+        
+        SELECTED_RATE_KEY = key;
+        updateServiceAndTotals(); // ডিসপ্লে আপডেট করার জন্য
+    }
+}
+$('#branchSelection').addEventListener('click', handleBranchSelection);
+
+
+// সার্ভিস নির্বাচন হ্যান্ডলার
+function handleServiceSelection(e) {
+    if (e.target.type !== 'radio' || e.target.name !== 'sendService') return;
+    
+    SELECTED_SERVICE = e.target.value;
+    $('#targetNumberLabel').textContent = `${SELECTED_SERVICE} নাম্বার দিন`;
+    buildDisplay();
+}
+$('#serviceSelection').addEventListener('change', handleServiceSelection);
+
+/*************************
+
 Load Accounts & Balances
 *************************/
 async function loadAccounts(){
@@ -209,6 +303,9 @@ ACCOUNTS = data;
 ACCOUNT_LIST = Object.keys(data).sort();
 renderAccounts();
 updateTotalsOnHome();
+
+// NEW: Load Rates at startup
+await loadRates(); 
 }
 
 function renderAccounts(){
@@ -374,7 +471,7 @@ function updateDashboardDisplay(){
 
     $('#last15-txns-count').textContent = `${DASHBOARD_STATE.last15TxnCount} টি | ${DASHBOARD_STATE.last15StartDmy} - ${DASHBOARD_STATE.last15EndDmy}`;
     $('#last15-date-range').textContent = `${DASHBOARD_STATE.last15StartDmy} - ${DASHBOARD_STATE.last15EndDmy}`;
-    $('#last15-txns-amount').textContent = formatCurrency(DASHBOARD_STATE.last15TxnAmount);
+   $('#last15-txns-amount').textContent = formatCurrency(DASHBOARD_STATE.last15TxnAmount);
 
    $('#monthly-txns-count').textContent = `${DASHBOARD_STATE.monthlyTxnCount} টি | ${DASHBOARD_STATE.monthlyStartDmy} - ${DASHBOARD_STATE.monthlyEndDmy}`;
    $('#monthly-date-range').textContent = `${DASHBOARD_STATE.monthlyStartDmy} - ${DASHBOARD_STATE.monthlyEndDmy}`;
@@ -493,7 +590,7 @@ $('#saveCashOutBtn').addEventListener('click', async ()=>{
 
 /*************************
 
-SEND MONEY: dynamic rows (UNMODIFIED LOGIC)
+SEND MONEY: dynamic rows
 *************************/
 const sendRowsEl = $('#sendRows');
 
@@ -583,17 +680,21 @@ function updateServiceAndTotals(){
     buildDisplay(); 
 }
 
+// পরিবর্তিত: SELECTED_SERVICE ব্যবহার করা হয়েছে
 function buildDisplay(){
-const target = $('#targetNumber').value?.trim();
-const rows = getValidSendRows();
-const total = rows.reduce((s,r)=>s+Number(r.amount||0), 0);
-let lines = [];
-if (target) lines.push(`বিকাশ ${target}`);
-lines.push(`টাকা ${total}`);
-rows.forEach(r=>{
-lines.push(`Pin ${r.account} টাকা ${r.amount}`);
-});
-$('#displayBox').textContent = lines.join('\n');
+    const target = $('#targetNumber').value?.trim();
+    const rows = getValidSendRows();
+    const total = rows.reduce((s,r)=>s+Number(r.amount||0), 0);
+    let lines = [];
+    
+    // পরিবর্তিত: সার্ভিস অনুযায়ী টেক্সট
+    if (target) lines.push(`${SELECTED_SERVICE} ${target}`);
+    
+    lines.push(`টাকা: ${total}`);
+    rows.forEach(r=>{
+    lines.push(`Pin: ${r.account} টাকা ${r.amount}`);
+    });
+    $('#displayBox').textContent = lines.join('\n');
 }
 
 $('#addRowBtn').addEventListener('click', ()=> addSendRow());
@@ -602,10 +703,26 @@ $('#targetNumber').addEventListener('input', buildDisplay);
 $('#serviceCharge').addEventListener('input', updateServiceAndTotals); 
 
 $('#copyDisplayBtn').addEventListener('click', async ()=>{
-try { await navigator.clipboard.writeText($('#displayBox').textContent || '');
-notify($('#sendMsg'), 'কপি হয়েছে ✅', 'success');
-} catch(e){ notify($('#sendMsg'), 'কপি করা যায়নি', 'error'); }
+try { 
+    await navigator.clipboard.writeText($('#displayBox').textContent || '');
+    notify($('#sendMsg'), 'কপি হয়েছে ✅', 'success');
+} catch(e){ 
+    notify($('#sendMsg'), 'কপি করা যায়নি', 'error'); 
+}
 });
+
+// NEW: RM Charge Calculation Function
+function calculateRmCharges(rmAmountBase) {
+    const amt = Math.ceil(rmAmountBase); // সিলিং করা হলো
+    
+    if (amt >= 701 && amt <= 5000) return 5;
+    if (amt >= 401 && amt <= 700) return 4;
+    if (amt >= 201 && amt <= 400) return 3;
+    if (amt >= 1) return 2; // 1 to 200
+    
+    return 0;
+}
+
 
 // prevent multi-tap/double click on send
 let isSending = false;
@@ -689,7 +806,7 @@ for (let i = 0; i < rows.length; i++){
 
     ACCOUNTS[r.account] = { ...(ACCOUNTS[r.account]||{}), Balance: currentBalance }; 
 
-    // 2. Account-specific transaction saving
+    // 2. Account-specific transaction saving (NO CHANGE, as requested)
     const accountTxRef = push(ref(db, `Account/${r.account}/transaction`)); 
     await set(accountTxRef, { 
         number: target, 
@@ -708,7 +825,7 @@ await loadAccounts(); // নতুন ব্যালেন্স রিলো�
 const currentTotalBalance = getTotalBalance(); // নতুন মোট ব্যালেন্স 
 const accountsString = selectedAccounts.join(','); // কমা দিয়ে অ্যাকাউন্টগুলি যুক্ত করা হলো
 
-// 3. Single_transaction সেভিং (মোট ব্যালেন্সের হিসাব)
+// 3. Single_transaction সেভিং (মোট ব্যালেন্সের হিসাব) - NO CHANGE, as requested
 const singleTxRef = push(ref(db, 'single_transaction')); 
 await set(singleTxRef, { 
     number: target, 
@@ -724,13 +841,43 @@ await set(singleTxRef, {
 }); 
 
 
-// 4. Save aggregate into all_transaction (for All Transactions Tab)
+// --- NEW: RM Calculation and All_Transaction Saving ---
+const selectedBranchButton = $('#branchSelection').querySelector('.primary');
+const selectedRate = Number(selectedBranchButton.dataset.rate) || 0;
+const branchName = selectedBranchButton.textContent.split('-')[0].trim();
+
+let chargerm = 0;
+let totalrm = 0;
+let rate = selectedRate;
+let rmBase = 0;
+
+if (rate > 0 && totalDeductForAll > 0) {
+    rmBase = totalDeductForAll / rate;
+    chargerm = calculateRmCharges(rmBase); 
+    totalrm = rmBase + chargerm;
+    totalrm = parseFloat(totalrm.toFixed(2)); // ২ দশমিক পর্যন্ত রাখলাম
+    chargerm = parseFloat(chargerm.toFixed(2)); // ২ দশমিক পর্যন্ত রাখলাম
+}
+
+// 4. Save aggregate into all_transaction (with NEW fields)
+let newDisplayText = displayText + '\n' + 
+                     `রেট: ${rate.toFixed(2)} (ব্রাঞ্চ: ${branchName})` + '\n' +
+                     `চার্য :${chargerm.toFixed(2)}` + '\n' +
+                     `মোট RM: ${totalrm.toFixed(2)}`;
+
 const allRef = push(ref(db, 'all_transaction')); 
 await set(allRef, { 
     date: dateStr, 
     timestamp: ts,
-    display_text: displayText,
+    display_text: newDisplayText,
+    number: target, // <-- ADDED THIS LINE
+    rate: rate,         
+    chargerm: chargerm,         
+    totalrm: totalrm,           
+    total_deducted: totalDeductForAll, 
 }); 
+// --- END NEW: RM Calculation and All_Transaction Saving ---
+
 
 buildDisplay(); 
 notify($('#sendMsg'), '✅ সফলভাবে পাঠানো হয়েছে ও ট্রানজেকশন সেভ হয়েছে', 'success'); 
@@ -746,7 +893,7 @@ await setSendLoading(false);
 
 /*************************
 
-TRANSACTIONS VIEW (per-account) (UNMODIFIED LOGIC)
+TRANSACTIONS VIEW (per-account)
 *************************/
 async function loadAllTransactions(){
 const all = [];
@@ -822,7 +969,7 @@ $('#searchBox').addEventListener('input', applyFilters);
 
 /*************************
 
-ALL_TRANSACTIONS (aggregate) view (UNMODIFIED LOGIC)
+ALL_TRANSACTIONS (aggregate) view
 *************************/
 async function loadAllAggregateTransactions(){
 const snap = await get(ref(db, 'all_transaction'));
@@ -835,7 +982,13 @@ all.push({
 id: k,
 display_text: v.display_text || '', 
 date: v.date || (v.timestamp? epochToDmy(v.timestamp): ''),
-timestamp: Number(v.timestamp || ddmmyyyyToEpoch(v.date)) || 0
+timestamp: Number(v.timestamp || ddmmyyyyToEpoch(v.date)) || 0,
+// NEW/Updated fields:
+number: v.number || '', 
+total_deducted: Number(v.total_deducted || 0), 
+rate: Number(v.rate || 0), 
+chargerm: Number(v.chargerm || 0), 
+totalrm: Number(v.totalrm || 0) 
 });
 });
 }
@@ -853,29 +1006,45 @@ applyAllFilters();
 function renderAllTxnTable(rows){
 const tbody = $('#allTxnTable tbody');
 tbody.innerHTML = '';
+
+let sumTotalDeductedAll = 0;
+let sumChargeRmAll = 0;
+let sumTotalRmAll = 0;
+
 rows.forEach(r=>{
 const tr = document.createElement('tr');
     
-// ডিসপ্লে টেক্সট data-text অ্যাট্রিবিউটে সেভ করা হয়েছে
+// Sum calculations
+sumTotalDeductedAll += r.total_deducted;
+sumChargeRmAll += r.chargerm;
+sumTotalRmAll += r.totalrm;
+
+// The display text cell (last column)
 const displayCell = document.createElement('td');
 displayCell.className = 'mono display-cell';
-// এখানে ডিসপ্লে টেক্সট এ যদি কোটেশন মার্ক থাকে, তবে তা HTML অ্যাট্রিবিউটে ব্যবহার করার জন্য এনকোড করা হচ্ছে।
 displayCell.setAttribute('data-text', r.display_text.replace(/"/g, '&quot;')); 
-displayCell.style.cssText = 'display:flex; justify-content:space-between; align-items:flex-start;';
+displayCell.style.cssText = 'display:flex; justify-content:space-between; align-items:flex-start; min-width: 250px;'; 
 
 displayCell.innerHTML = `
     <pre style="white-space:pre-wrap;margin:0; flex-grow:1;">${r.display_text}</pre>
-    <button class="btn ghost copy-btn" style="padding: 2px 5px; margin-left: 5px; font-size: 14px; cursor: pointer;">📎</button>
+    <button class="btn ghost copy-btn" style="padding: 2px 5px; margin-left: 5px; font-size: 14px; cursor: pointer; flex-shrink: 0;">📎</button>
 `;
 
-tr.innerHTML = `<td>${r.date}</td>`;
-tr.appendChild(displayCell);
+// New table row structure
+tr.innerHTML = `
+    <td>${r.date}</td>
+    <td class="mono">${r.number}</td>
+    <td class="mono">${formatCurrency(r.total_deducted)}</td>
+    <td class="mono">${r.rate.toFixed(2)}</td>
+    <td class="mono">${r.chargerm.toFixed(2)}</td>
+    <td class="mono">${r.totalrm.toFixed(2)}</td>
+`;
+tr.appendChild(displayCell); // Append the display cell (last column)
 tbody.appendChild(tr);
 
 // DOM এ যুক্ত হওয়ার পর ইভেন্ট লিসেনার যোগ করা হচ্ছে
 const copyButton = tr.querySelector('.copy-btn');
 copyButton.addEventListener('click', async (e) => {
-    // ডিসপ্লে টেক্সট data-text অ্যাট্রিবিউউট থেকে নেওয়া হচ্ছে
     const textToCopy = e.currentTarget.closest('.display-cell').getAttribute('data-text');
 
     try {
@@ -885,18 +1054,21 @@ copyButton.addEventListener('click', async (e) => {
         btn.textContent = '✅'; 
         setTimeout(() => { btn.textContent = '📎'; }, 1000); 
     } catch(err){
-        // এরোর মেসেজ না দেখিয়ে শুধু সতর্কতা দেখাচ্ছি, যাতে ইউজার বিভ্রান্ত না হন
-        alert('❌ কপি করা যায়নি। ব্রাউজারে Clipboard API ব্যবহারের অনুমতি দিন।');
+        // Changed alert to prompt for permission as requested
+        alert('❌ কপি করা যায়নি। ব্রাউজারে বা ডিভাইসে Clipboard API ব্যবহারের অনুমতি দিন অথবা আপনার ব্রাউজার আপডেটেড কিনা নিশ্চিত করুন।');
         console.error("Copy failed: ", err); 
     }
 });
 });
 
 $('#allTxnCount').textContent = rows.length;
-// ⭐ সংক্ষিপ্ত হিসাবে মোট কাটা যোগ করা
-const sumTotalDeductedAll = rows.reduce((s,x)=>s+x.total,0);
-const sumChargeAll = rows.reduce((s,x)=>s+x.charge,0);
-$('#allSummary').textContent = `মোট: ${rows.length} টি | টাকা: ${formatCurrency(sumTotalDeductedAll)} | চার্জ: ${formatCurrency(sumChargeAll)}`;
+// ⭐ সংক্ষিপ্ত হিসাবে মোট BDT কাটা, চার্জ RM, ও টোটাল RM যোগ করা
+$('#allSummary').innerHTML = `
+    মোট: ${rows.length} টি | 
+    ডেডাকটেড BDT: ${formatCurrency(sumTotalDeductedAll)} | 
+    চার্জ RM: ${sumChargeRmAll.toFixed(2)} | 
+    মোট RM: ${sumTotalRmAll.toFixed(2)}
+`;
 
 }
 
@@ -908,7 +1080,10 @@ let rows = (window.ALL_AGG||[]).slice();
 
 if (f) rows = rows.filter(x=> x.timestamp >= f);
 if (t) rows = rows.filter(x=> x.timestamp <= (t + (24*60*60*1000) - 1));
-if (q) rows = rows.filter(x=> `${x.display_text}`.toLowerCase().includes(q) );
+if (q) rows = rows.filter(x=> 
+    `${x.display_text}`.toLowerCase().includes(q) || 
+    `${x.number}`.toLowerCase().includes(q) // <-- ADDED NUMBER SEARCH
+);
 
 renderAllTxnTable(rows);
 }
@@ -972,4 +1147,9 @@ onValue(ref(db, 'single_transaction'), (snapshot) => {
     if (snapshot.exists()) {
         loadDashboardData();
     }
+});
+
+// ⭐ NEW: Firebase-এর 'rate' ফোল্ডারে লাইভ লিসেনার যুক্ত করা হলো
+onValue(ref(db, 'rate'), (snapshot) => {
+    loadRates();
 });

@@ -690,9 +690,9 @@ function buildDisplay(){
     // পরিবর্তিত: সার্ভিস অনুযায়ী টেক্সট
     if (target) lines.push(`${SELECTED_SERVICE} ${target}`);
     
-    lines.push(`টাকা: ${total}`);
+    lines.push(`টাকা ${total}`);
     rows.forEach(r=>{
-    lines.push(`Pin: ${r.account} টাকা ${r.amount}`);
+    lines.push(`Pin ${r.account} টাকা ${r.amount}`);
     });
     $('#displayBox').textContent = lines.join('\n');
 }
@@ -707,12 +707,21 @@ try {
     await navigator.clipboard.writeText($('#displayBox').textContent || '');
     notify($('#sendMsg'), 'কপি হয়েছে ✅', 'success');
 } catch(e){ 
+    // Show permission error message as requested
+    alert('❌ কপি করা যায়নি। ব্রাউজারে বা ডিভাইসে Clipboard API ব্যবহারের অনুমতি দিন অথবা আপনার ব্রাউজার আপডেটেড কিনা নিশ্চিত করুন।');
+    console.error("Copy failed: ", e);
     notify($('#sendMsg'), 'কপি করা যায়নি', 'error'); 
 }
 });
 
-// NEW: RM Charge Calculation Function
-function calculateRmCharges(rmAmountBase) {
+// NEW: RM Charge Calculation Function (UPDATED LOGIC)
+function calculateRmCharges(rmAmountBase, branchKey) {
+    // If Perak is selected (key is 'perak_bdt'), charge is always 5 RM.
+    if (branchKey === 'perak_bdt') {
+        return 5;
+    }
+    
+    // Existing logic for Johor ('bdt')
     const amt = Math.ceil(rmAmountBase); // সিলিং করা হলো
     
     if (amt >= 701 && amt <= 5000) return 5;
@@ -845,6 +854,7 @@ await set(singleTxRef, {
 const selectedBranchButton = $('#branchSelection').querySelector('.primary');
 const selectedRate = Number(selectedBranchButton.dataset.rate) || 0;
 const branchName = selectedBranchButton.textContent.split('-')[0].trim();
+const branchKey = selectedBranchButton.dataset.branch; // Get branch key
 
 let chargerm = 0;
 let totalrm = 0;
@@ -853,7 +863,9 @@ let rmBase = 0;
 
 if (rate > 0 && totalDeductForAll > 0) {
     rmBase = totalDeductForAll / rate;
-    chargerm = calculateRmCharges(rmBase); 
+    // Calculate chargerm using the updated logic
+    chargerm = calculateRmCharges(rmBase, branchKey); 
+    
     totalrm = rmBase + chargerm;
     totalrm = parseFloat(totalrm.toFixed(2)); // ২ দশমিক পর্যন্ত রাখলাম
     chargerm = parseFloat(chargerm.toFixed(2)); // ২ দশমিক পর্যন্ত রাখলাম
@@ -870,11 +882,12 @@ await set(allRef, {
     date: dateStr, 
     timestamp: ts,
     display_text: newDisplayText,
-    number: target, // <-- ADDED THIS LINE
+    number: target, 
     rate: rate,         
     chargerm: chargerm,         
     totalrm: totalrm,           
     total_deducted: totalDeductForAll, 
+    branch: branchName, // <-- ADDED THIS LINE
 }); 
 // --- END NEW: RM Calculation and All_Transaction Saving ---
 
@@ -988,7 +1001,8 @@ number: v.number || '',
 total_deducted: Number(v.total_deducted || 0), 
 rate: Number(v.rate || 0), 
 chargerm: Number(v.chargerm || 0), 
-totalrm: Number(v.totalrm || 0) 
+totalrm: Number(v.totalrm || 0),
+branch: v.branch || '' // <-- ADDED THIS LINE
 });
 });
 }
@@ -1012,57 +1026,58 @@ let sumChargeRmAll = 0;
 let sumTotalRmAll = 0;
 
 rows.forEach(r=>{
-const tr = document.createElement('tr');
-    
-// Sum calculations
-sumTotalDeductedAll += r.total_deducted;
-sumChargeRmAll += r.chargerm;
-sumTotalRmAll += r.totalrm;
+    // Sum calculations
+    sumTotalDeductedAll += r.total_deducted;
+    sumChargeRmAll += r.chargerm;
+    sumTotalRmAll += r.totalrm;
 
-// The display text cell (last column)
-const displayCell = document.createElement('td');
-displayCell.className = 'mono display-cell';
-displayCell.setAttribute('data-text', r.display_text.replace(/"/g, '&quot;')); 
-displayCell.style.cssText = 'display:flex; justify-content:space-between; align-items:flex-start; min-width: 250px;'; 
+    const tr = document.createElement('tr');
+        
+    // The display text cell (last column)
+    const displayCell = document.createElement('td');
+    displayCell.className = 'mono display-cell';
+    displayCell.setAttribute('data-text', r.display_text.replace(/"/g, '&quot;')); 
+    displayCell.style.cssText = 'display:flex; justify-content:space-between; align-items:flex-start; min-width: 250px;'; 
 
-displayCell.innerHTML = `
-    <pre style="white-space:pre-wrap;margin:0; flex-grow:1;">${r.display_text}</pre>
-    <button class="btn ghost copy-btn" style="padding: 2px 5px; margin-left: 5px; font-size: 14px; cursor: pointer; flex-shrink: 0;">📎</button>
-`;
+    displayCell.innerHTML = `
+        <pre style="white-space:pre-wrap;margin:0; flex-grow:1;">${r.display_text}</pre>
+        <button class="btn ghost copy-btn" style="padding: 2px 5px; margin-left: 5px; font-size: 14px; cursor: pointer; flex-shrink: 0;">📎</button>
+    `;
 
-// New table row structure
-tr.innerHTML = `
-    <td>${r.date}</td>
-    <td class="mono">${r.number}</td>
-    <td class="mono">${formatCurrency(r.total_deducted)}</td>
-    <td class="mono">${r.rate.toFixed(2)}</td>
-    <td class="mono">${r.chargerm.toFixed(2)}</td>
-    <td class="mono">${r.totalrm.toFixed(2)}</td>
-`;
-tr.appendChild(displayCell); // Append the display cell (last column)
-tbody.appendChild(tr);
+    // New table row structure (ADDED BRANCH)
+    tr.innerHTML = `
+        <td>${r.date}</td>
+        <td class="mono">${r.branch}</td> 
+        <td class="mono">${r.number}</td>
+        <td class="mono">${formatCurrency(r.total_deducted)}</td>
+        <td class="mono">${r.rate.toFixed(2)}</td>
+        <td class="mono">${r.chargerm.toFixed(2)}</td>
+        <td class="mono">${r.totalrm.toFixed(2)}</td>
+    `;
+    tr.appendChild(displayCell); // Append the display cell (last column)
+    tbody.appendChild(tr);
 
-// DOM এ যুক্ত হওয়ার পর ইভেন্ট লিসেনার যোগ করা হচ্ছে
-const copyButton = tr.querySelector('.copy-btn');
-copyButton.addEventListener('click', async (e) => {
-    const textToCopy = e.currentTarget.closest('.display-cell').getAttribute('data-text');
+    // DOM এ যুক্ত হওয়ার পর ইভেন্ট লিসেনার যোগ করা হচ্ছে
+    const copyButton = tr.querySelector('.copy-btn');
+    copyButton.addEventListener('click', async (e) => {
+        const textToCopy = e.currentTarget.closest('.display-cell').getAttribute('data-text');
 
-    try {
-        e.stopPropagation(); 
-        await navigator.clipboard.writeText(textToCopy || '');
-        const btn = e.currentTarget;
-        btn.textContent = '✅'; 
-        setTimeout(() => { btn.textContent = '📎'; }, 1000); 
-    } catch(err){
-        // Changed alert to prompt for permission as requested
-        alert('❌ কপি করা যায়নি। ব্রাউজারে বা ডিভাইসে Clipboard API ব্যবহারের অনুমতি দিন অথবা আপনার ব্রাউজার আপডেটেড কিনা নিশ্চিত করুন।');
-        console.error("Copy failed: ", err); 
-    }
-});
+        try {
+            e.stopPropagation(); 
+            await navigator.clipboard.writeText(textToCopy || '');
+            const btn = e.currentTarget;
+            btn.textContent = '✅'; 
+            setTimeout(() => { btn.textContent = '📎'; }, 1000); 
+        } catch(err){
+            // Changed alert to prompt for permission as requested
+            alert('❌ কপি করা যায়নি। ব্রাউজারে বা ডিভাইসে Clipboard API ব্যবহারের অনুমতি দিন অথবা আপনার ব্রাউজার আপডেটেড কিনা নিশ্চিত করুন।');
+            console.error("Copy failed: ", err); 
+        }
+    });
 });
 
 $('#allTxnCount').textContent = rows.length;
-// ⭐ সংক্ষিপ্ত হিসাবে মোট BDT কাটা, চার্জ RM, ও টোটাল RM যোগ করা
+// ⭐ সংক্ষিপ্ত হিসাবে মোট BDT কাটা, চার্জ RM, ও টোটাল RM যোগ করা (UPDATED SUMMARY)
 $('#allSummary').innerHTML = `
     মোট: ${rows.length} টি | 
     ডেডাকটেড BDT: ${formatCurrency(sumTotalDeductedAll)} | 
@@ -1073,23 +1088,26 @@ $('#allSummary').innerHTML = `
 }
 
 function applyAllFilters(){
-const q = ($('#allSearchBox').value||'').toLowerCase();
-const f = ymdToEpoch($('#allDateFrom').value);
-const t = ymdToEpoch($('#allDateTo').value);
-let rows = (window.ALL_AGG||[]).slice();
+    const q = ($('#allSearchBox').value||'').toLowerCase();
+    const f = ymdToEpoch($('#allDateFrom').value);
+    const t = ymdToEpoch($('#allDateTo').value);
+    const branch = $('#branchFilter').value; // <-- GET BRANCH FILTER VALUE
+    let rows = (window.ALL_AGG||[]).slice();
 
-if (f) rows = rows.filter(x=> x.timestamp >= f);
-if (t) rows = rows.filter(x=> x.timestamp <= (t + (24*60*60*1000) - 1));
-if (q) rows = rows.filter(x=> 
-    `${x.display_text}`.toLowerCase().includes(q) || 
-    `${x.number}`.toLowerCase().includes(q) // <-- ADDED NUMBER SEARCH
-);
+    if (f) rows = rows.filter(x=> x.timestamp >= f);
+    if (t) rows = rows.filter(x=> x.timestamp <= (t + (24*60*60*1000) - 1));
+    if (branch) rows = rows.filter(x=> x.branch === branch); // <-- APPLY BRANCH FILTER
+    if (q) rows = rows.filter(x=> 
+        `${x.display_text}`.toLowerCase().includes(q) || 
+        `${x.number}`.toLowerCase().includes(q) 
+    );
 
-renderAllTxnTable(rows);
+    renderAllTxnTable(rows);
 }
 
 $('#applyAllFilterBtn').addEventListener('click', applyAllFilters);
 $('#allSearchBox').addEventListener('input', applyAllFilters);
+$('#branchFilter').addEventListener('change', applyAllFilters); // <-- ADDED EVENT LISTENER
 
 /*************************
 

@@ -9,13 +9,28 @@
 </head>
 <body>
   <div class="container">
+
+
     <section id="section-profile" class="grid cols-2">
-      <div class="card">
+      
+
+      
+    </section>
+
+    <section id="section-dashboard" style="margin-top: 15px;">
+
+      
+
+
+
+      <div class="card2">
+
+        <div class="card2">
         <div class="row between">
           <div>
             <div class="title">লেনদেন প্রবাসী</div>
           </div>
-          <div class="pill">Verified</div>
+          
         </div>
         <div style="height:10px"></div>
         <div class="row between">
@@ -27,11 +42,9 @@
         </div>
       </div>
 
-      
-    </section>
+      <div style="height:1.5px; background-color: var(--border); margin-top: 20px;"></div>
+      <div style="height:30px"></div>
 
-    <section id="section-dashboard" style="margin-top: 15px;">
-      <div class="card">
         <div class="title">ড্যাশবোর্ড</div>
         
         <div style="height:10px"></div>
@@ -133,21 +146,18 @@
 
     
 
-    <section id="section-send" class="card hidden">
+    <section id="section-send" class="cardnoneed hidden">
       <div class="title">টাকা পাঠান</div>
       <div style="margin-top:10px">
-        <label>টাকা পাঠানোর ধরণ</label>
+        <label>কিসে পাঠাবেন</label>
+        
         <div class="row" id="serviceSelection" style="gap:15px; margin-top:6px;">
-            <label><input type="radio" name="sendService" value="বিকাশ" checked> বিকাশ</label>
-            <label><input type="radio" name="sendService" value="রিচার্জ"> রিচার্জ</label>
+            <label class="service-option"><input type="radio" name="sendService" value="বিকাশ" checked> বিকাশ</label>
+            <label class="service-option"><input type="radio" name="sendService" value="রিচার্জ"> রিচার্জ</label>
         </div>
+
       </div>
-      <div class="grid" style="margin-top:10px">
-        <div>
-          <label id="targetNumberLabel">বিকাশ নাম্বার দিন</label>
-          <input id="targetNumber" placeholder="01XXXXXXXXX" inputmode="numeric" pattern="[0-9]*" />
-        </div>
-      </div>
+
 
       <div style="margin-top:15px">
           <label>ব্রাঞ্চ সিলেক্ট করুন</label>
@@ -157,8 +167,17 @@
               <button id="branchPerak" class="btn ghost branch-rate-btn" data-branch="perak_bdt" data-rate="0">Perak- 0.00৳</button>
           </div>
       </div>
+
+
+      <div class="grid" style="margin-top:20px">
+        <div>
+          <label id="targetNumberLabel">বিকাশ নাম্বার দিন</label>
+          <input id="targetNumber" placeholder="01XXXXXXXXX" inputmode="numeric" pattern="[0-9]*" />
+        </div>
+      </div>
+
       <div style="height:10px"></div>
-      <div class="row between">
+      <div class="between">
         <div class="subtitle"></div>
         <button id="addRowBtn" class="btn">+ আরেকটি একাউন্ট</button>
       </div>
@@ -169,12 +188,12 @@
       <div style="height:10px"></div>
       <div class="grid" style="grid-template-columns:1fr 1fr; gap:10px">
         <div>
-          <label>সার্ভিস চার্জ (অটো)</label>
+          <label>সার্ভিস চার্জ</label>
           <input id="serviceCharge" class="mono" readonly value="0" />
           <div class="muted" style="font-size:12px"></div>
         </div>
         <div>
-          <label>মোট এমাউন্ট (চার্জ ছাড়া)</label>
+          <label>চার্জ ছাড়া এমাউন্ট</label>
           <input id="totalAmount" class="mono" readonly value="0" />
         </div>
       </div>
@@ -192,9 +211,9 @@
       </div>
     </section>
 
-    <section id="section-transactions" class="card hidden">
+    <section id="section-transactions" class="card2 hidden">
       <div class="row between">
-        <div class="title">ট্রানজেকশনের বিবরণ (প্রতি একাউন্ট)</div>
+        <div class="title">ট্রানজেকশন (প্রতি একাউন্ট)</div>
         <span class="badge" id="txnCount">0</span>
       </div>
 

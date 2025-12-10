@@ -63,7 +63,7 @@ body.light {
 .card {
   background: linear-gradient(180deg, var(--card), var(--soft));
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 8px;
   padding: 16px;
   box-shadow: 0 10px 28px rgba(0,0,0,.12);
   
@@ -510,3 +510,17 @@ body.light .final-account .muted {
 .table.cash-history td:nth-child(3) {
     width: 35%; /* Remark Column width */
 }
+
+
+.service-option {
+    display: inline-flex;
+    align-items: center;
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 8px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    gap: 6px;
+}
+
+

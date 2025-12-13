@@ -32,7 +32,7 @@ const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
 const formatCurrency = (n) => {
 const num = Number(n || 0);
-return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(num)+' ৳';
+return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(num)+'';
 };
 
 const todayStr = () => {

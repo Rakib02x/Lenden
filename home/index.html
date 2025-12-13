@@ -6,12 +6,69 @@
   <title>লেনদেন প্রবাসী — আর এস ডিজিটাল পার্সোনাল ডাটা সার্ভার</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+
 </head>
 <body>
+
+  
   <div class="container">
 
 
     <section id="section-profile" class="grid cols-2">
+
+
+      <div class="profile-container">
+        <div class="header">
+            <div class="logo-section">
+                <img src="https://res.cloudinary.com/rakib02/image/upload/v1765226289/widthlogo_wovjec.png" alt="Lenden Probashi Logo">
+            </div>
+            <div class="user-avatar">
+                <img src="https://res.cloudinary.com/rakib02/image/upload/v1760131433/Bazar/Adobe_Express_-_file_kmk5rl.png" alt="User Avatar"> 
+                
+                <span class="material-icons verified-icon">verified</span>
+            </div>
+        </div>
+
+        <div class="balance-section">
+            <h4>Total Balance</h4>
+            <div  class="balance-amount">
+                <span  class="currency">TK</span> 
+                <span id="totalBalance">000.00</span>
+            </div>
+        </div>
+        
+
+        <div class="menu-bar">
+            <div class="menu-item">
+                <div id="addbalance" class="menu-icon-wrapper">
+                    <span class="material-icons menu-icon">add_circle</span>
+                </div>
+                <span class="menu-label">বিটুবি যোগ</span>
+            </div>
+
+            <div class="menu-item">
+                <div class="menu-icon-wrapper">
+                    <span id="btnAllTxns" class="material-icons menu-icon">receipt</span>
+                </div>
+                <span class="menu-label">রিসিপ গ্রহস</span>
+            </div>
+
+            <div class="menu-item">
+                <div class="menu-icon-wrapper">
+                    <span id="sim" class="material-icons menu-icon">sim_card</span>
+                </div>
+                <span class="menu-label">সিম কার্ড</span>
+            </div>
+
+            <div class="menu-item">
+                <div class="menu-icon-wrapper">
+                    <span id="btnSettings" class="material-icons menu-icon">settings</span>
+                </div>
+                <span class="menu-label">সেটিংস</span>
+            </div>
+        </div>
+    </div>
       
 
       
@@ -25,22 +82,6 @@
 
       <div class="card2">
 
-        <div class="card2">
-        <div class="row between">
-          <div>
-            <div class="title">লেনদেন প্রবাসী</div>
-          </div>
-          
-        </div>
-        <div style="height:10px"></div>
-        <div class="row between">
-          <div>
-            <div class="muted">মোট ব্যালেন্স</div>
-            <div id="totalBalance" class="balance mono">0000</div>
-          </div>
-          <button id="addbalance" class="btn primary">টাকা যোগ/বিটুবি</button>
-        </div>
-      </div>
 
       <div style="height:1.5px; background-color: var(--border); margin-top: 20px;"></div>
       <div style="height:30px"></div>
@@ -127,18 +168,8 @@
 
       <div style="height:10px"></div>
 
+        
 
-      <div class="card">
-        <div class="title">সকল সেবা সূমহ্</div>
-        <div class="subtitle">নিচের অপশন থেকে যেকোনটি নির্বাচন করুন</div>
-        <div style="height:8px"></div>
-        <div class="row" style="flex-wrap:wrap; gap:8px">
-          <button id="btnAllTxns" class="btn">রিসিপ গ্রহন</button>
-          <button id="sim" class="btn ghost">সিম কার্ড</button>
-          <button id="btnSettings" class="btn ghost">সেটিংস</button>
-          <button id="help" class="btn ghost">হেল্প</button>
-        </div>
-       </div>
 
 
 

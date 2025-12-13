@@ -535,7 +535,7 @@ body.light .final-account .muted {
 
  .profile-container {
             width: 100%;
-            max-width: ;
+            max-width: 400px;
             background: linear-gradient(180deg, var(--card) 0%, var(--bg) 100%); 
             border-radius: 20px;
             padding: 20px;
@@ -685,7 +685,7 @@ body.light .final-account .muted {
 /* ✅ Logo Perfect Size */
 .logo-container img {
     height: 40px;               /* না বড় না ছোট */
-    width: auto;
+    width: 100%;
     object-fit: contain;
 }
 

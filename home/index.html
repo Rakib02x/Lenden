@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="bn">
 <head>
   <meta charset="UTF-8" />
@@ -10,16 +10,72 @@
 
 </head>
 <body>
+
+<div id="login-modal" class="modal">
+    <div class="modal-content card" style="max-width: 350px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <img src="https://res.cloudinary.com/rakib02/image/upload/v1765226290/logo_xb1jym.png" alt="Logo" style="height: 60px; margin-bottom: 10px;">
+            <div class="title">লগইন</div>
+            <div class="muted" style="font-size: 14px;">আপনার একাউন্টের তথ্য দিন।
+            </div>
+        </div>
+
+        <label for="usernameInput">ইউজারনেম</label>
+        <input id="usernameInput" type="text" placeholder="Username/Email/Phone" />
+        <div style="height:10px"></div>
+        <label for="passwordInput">পাসওয়ার্ড</label>
+        <input id="passwordInput" type="password" placeholder="Password" />
+        
+        <div id="loginMsg" class="muted" style="margin-top:10px; text-align:center;"></div>
+        
+        <div style="height:14px"></div>
+        <button id="loginBtn" class="btn2" style="width: 100%;">লগইন</button>
+    </div>
+</div>
+
+<div id="reauth-modal" class="modal hidden">
+    <div class="modal-content card" style="max-width: 350px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <div id="reauth-image-container">
+                </div>
+            <div class="title" id="reauth-username"></div>
+            <div class="muted" style="font-size: 14px; color: var(--danger);">নিরাপত্তার জন্য পাসওয়ার্ড দিন</div>
+        </div>
+
+        <label for="reauthPasswordInput">পাসওয়ার্ড</label>
+        <input id="reauthPasswordInput" type="password" placeholder="পাসওয়ার্ড" />
+        
+        <div id="reauthMsg" class="muted" style="margin-top:10px; text-align:center;"></div>
+        
+        <div style="height:14px"></div>
+        <button id="reauthBtn" class="btn primary" style="width: 100%;">সাবমিট</button>
+    </div>
+</div>
+
 <div class="titlebar">
     <div class="logo-container">
         <img src="https://res.cloudinary.com/rakib02/image/upload/v1765226289/widthlogo_wovjec.png">
     </div>
 
-    <div id="help" class="profile-icon-wrapper">
-        <span class="material-icons">account_circle</span>
+    <div id="profile-area" class="profile-icon-wrapper" style="cursor: pointer;">
+        <span id="profile-icon-placeholder" class="material-icons">chat</span>
+        </div>
+</div>
+
+<div id="profile-dropdown" class="settings-panel hidden" style="right: 14px; top: 68px;">
+    <div id="profile-info" style="text-align: center;">
+        <div id="profile-image">
+            <img id="profile-img-element" src="" alt="Profile Picture">
+        </div>
+        <div id="profile-name" style="font-weight: 700; font-size: 16px; margin-top: 8px;"></div>
+        <div id="profile-username-display" class="muted" style="font-size: 13px; margin-top: 4px;"></div>
     </div>
+    <div style="height:10px; margin-top: 10px; border-top: 1px solid var(--border);"></div>
+    <button id="logoutBtn" class="btn danger" style="width: 100%; justify-content: center;">লগ আউট</button>
 </div>
   
+<div id="main-app" class="hidden">
+
   <div class="container">
 
 
@@ -460,7 +516,7 @@
     </div>
   </div>
 
-
+</div>
   <script type="module" src="script.js"></script>
 </body>
 </html>

@@ -109,7 +109,316 @@ const getAutoFilterDates = () => {
 };
 
 /*************************
+AUTH & SESSION LOGIC (NEW)
+*************************/
 
+// NEW: Auth UI Elements
+const mainAppEl = $('#main-app');
+const loginModal = $('#login-modal');
+const usernameInput = $('#usernameInput');
+const passwordInput = $('#passwordInput');
+const loginBtn = $('#loginBtn');
+const loginMsg = $('#loginMsg');
+const profileArea = $('#profile-area');
+const profileDropdown = $('#profile-dropdown');
+const profileImageContainer = $('#profile-image');
+const profileImgElement = $('#profile-img-element');
+const profileNameEl = $('#profile-name');
+const profileUsernameDisplay = $('#profile-username-display');
+const logoutBtn = $('#logoutBtn');
+const profileIconPlaceholder = $('#profile-icon-placeholder');
+
+// NEW: Re-auth Elements
+const reauthModal = $('#reauth-modal');
+const reauthUsernameEl = $('#reauth-username');
+const reauthPasswordInput = $('#reauthPasswordInput');
+const reauthBtn = $('#reauthBtn');
+const reauthMsg = $('#reauthMsg');
+const reauthImageContainer = $('#reauth-image-container');
+
+
+// NEW: Session Management Constants
+const SESSION_KEY = 'lenden_session';
+const LAST_ACTIVITY_KEY = 'lenden_last_activity';
+const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
+let CURRENT_USER = null; // Stores logged in user data
+let INACTIVITY_TIMER = null; // Timer for re-auth check
+
+function saveSession(username, userData) {
+    const sessionData = {
+        username: username,
+        ...userData
+    };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+    updateActivityTime();
+    CURRENT_USER = sessionData;
+}
+
+function getSession() {
+    const data = localStorage.getItem(SESSION_KEY);
+    return data ? JSON.parse(data) : null;
+}
+
+function clearSession() {
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(LAST_ACTIVITY_KEY);
+    CURRENT_USER = null;
+    // Clear UI on logout
+    showLogin();
+    updateProfileUI(null);
+    if (INACTIVITY_TIMER) clearInterval(INACTIVITY_TIMER);
+}
+
+function updateActivityTime() {
+    localStorage.setItem(LAST_ACTIVITY_KEY, Date.now());
+}
+
+function showLogin() {
+    // Hide main app content
+    mainAppEl.classList.add('hidden');
+    // Show login modal
+    loginModal.classList.remove('hidden');
+    // Hide reauth modal
+    reauthModal.classList.add('hidden');
+    // Hide bottom nav 
+    $('.bottom-nav')?.classList.add('hidden'); 
+    
+    // Reset inputs
+    usernameInput.value = '';
+    passwordInput.value = '';
+    notify(loginMsg, '');
+    
+    // Re-enable login button
+    loginBtn.disabled = false;
+    loginBtn.textContent = 'লগইন';
+}
+
+function showApp() {
+    // Show main app content
+    mainAppEl.classList.remove('hidden');
+    // Hide modals
+    loginModal.classList.add('hidden');
+    reauthModal.classList.add('hidden');
+    // Show bottom nav
+    $('.bottom-nav')?.classList.remove('hidden');
+
+    // Start background watchers
+    setupInactivityWatcher();
+    
+    // Load app data
+    loadAccounts();
+    loadDashboardData(); 
+    showTab('home');
+    updateActivityTime();
+}
+
+function updateProfileUI(user) {
+    if (user && user.image) {
+        // Replace icon with image
+        profileIconPlaceholder.style.display = 'none';
+        
+        // Create <img> element for titlebar if it's not present
+        let imgEl = profileArea.querySelector('#titlebar-profile-img');
+        if (!imgEl) {
+            imgEl = document.createElement('img');
+            imgEl.id = 'titlebar-profile-img';
+            imgEl.style.width = '100%'; 
+            imgEl.style.height = '100%'; 
+            imgEl.style.objectFit = 'cover';
+            imgEl.style.borderRadius = '50%';
+            profileArea.appendChild(imgEl);
+        }
+        imgEl.src = user.image;
+
+        // Update dropdown info
+        profileImgElement.src = user.image;
+        profileNameEl.textContent = user.name || 'ইউজার';
+        profileUsernameDisplay.textContent = user.username;
+        
+    } else {
+        // Show default icon
+        profileIconPlaceholder.style.display = 'block';
+        profileArea.querySelector('#titlebar-profile-img')?.remove();
+        // Clear dropdown info
+        profileImgElement.src = '';
+        profileNameEl.textContent = '';
+        profileUsernameDisplay.textContent = '';
+        profileDropdown.classList.add('hidden');
+    }
+}
+
+
+async function checkAuthStatus() {
+    const session = getSession();
+    if (session) {
+        const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY) || 0);
+        const now = Date.now();
+        const inactiveDuration = now - lastActivity;
+
+        if (inactiveDuration > INACTIVITY_TIMEOUT_MS) {
+            // Re-auth required
+            CURRENT_USER = session;
+            updateProfileUI(CURRENT_USER);
+            showReauthModal();
+        } else {
+            // Session is valid
+            CURRENT_USER = session;
+            updateProfileUI(CURRENT_USER);
+            showApp();
+        }
+    } else {
+        // No session, show login
+        showLogin();
+    }
+}
+
+function setupInactivityWatcher() {
+    // Clear any existing timer
+    if (INACTIVITY_TIMER) clearInterval(INACTIVITY_TIMER);
+
+    // Watch for activity to update time
+    const activityEvents = ['mousemove', 'keydown', 'click', 'scroll'];
+    activityEvents.forEach(event => document.addEventListener(event, updateActivityTime));
+
+    // Start re-auth check timer (checks every 30 seconds)
+    INACTIVITY_TIMER = setInterval(() => {
+        if (CURRENT_USER && reauthModal.classList.contains('hidden')) {
+            const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY) || 0);
+            const now = Date.now();
+            if (now - lastActivity > INACTIVITY_TIMEOUT_MS) {
+                // If main app is visible and timeout occurs, show re-auth
+                if (!mainAppEl.classList.contains('hidden')) {
+                    showReauthModal();
+                }
+            }
+        }
+    }, 30000); // Check every 30 seconds
+}
+
+function showReauthModal() {
+    if (!CURRENT_USER) return;
+    
+    // Hide main app
+    mainAppEl.classList.add('hidden');
+    // Show reauth modal
+    reauthModal.classList.remove('hidden');
+    // Hide bottom nav
+    $('.bottom-nav')?.classList.add('hidden'); 
+
+    // Update UI
+    reauthUsernameEl.textContent = CURRENT_USER.username;
+    reauthPasswordInput.value = '';
+    notify(reauthMsg, '');
+    
+    // Update profile image in re-auth modal
+    reauthImageContainer.innerHTML = `<img src="${CURRENT_USER.image || ''}" alt="Profile">`;
+    
+    reauthBtn.disabled = false;
+    reauthBtn.textContent = 'সাবমিট';
+}
+
+async function verifyCredentials(username, password) {
+    const snap = await get(child(ref(db, 'user'), username));
+    if (snap.exists()) {
+        const userData = snap.val();
+        if (userData.password === password) {
+            // Success
+            return {
+                name: userData.name,
+                image: userData.image,
+                role: userData.role
+            };
+        }
+    }
+    return null; // Failure
+}
+
+
+// Event Handlers for Login/Re-auth
+
+loginBtn.addEventListener('click', async () => {
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
+    
+    if (!username || !password) {
+        notify(loginMsg, 'ইউজারনেম ও পাসওয়ার্ড দিন', 'error');
+        return;
+    }
+
+    loginBtn.disabled = true;
+    loginBtn.textContent = 'প্রসেসিং...';
+
+    const userData = await verifyCredentials(username, password);
+
+    if (userData) {
+        saveSession(username, userData);
+        updateProfileUI(CURRENT_USER);
+        notify(loginMsg, 'সফলভাবে লগইন হয়েছে', 'success');
+        
+        // Wait briefly for UI update then show app
+        setTimeout(showApp, 500); 
+    } else {
+        notify(loginMsg, 'ইউজারনেম বা পাসওয়ার্ড ভুল হয়েছে', 'error');
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'লগইন';
+    }
+});
+
+reauthBtn.addEventListener('click', async () => {
+    const username = CURRENT_USER.username;
+    const password = reauthPasswordInput.value;
+    
+    if (!password) {
+        notify(reauthMsg, 'পাসওয়ার্ড দিন', 'error');
+        return;
+    }
+
+    reauthBtn.disabled = true;
+    reauthBtn.textContent = 'প্রসেসিং...';
+
+    const userData = await verifyCredentials(username, password);
+
+    if (userData) {
+        // Re-authentication successful, update activity time and show app
+        updateActivityTime();
+        notify(reauthMsg, 'সফলভাবে যাচাই করা হয়েছে', 'success');
+        setTimeout(showApp, 500); 
+    } else {
+        notify(reauthMsg, 'পাসওয়ার্ড ভুল হয়েছে', 'error');
+        reauthBtn.disabled = false;
+        reauthBtn.textContent = 'সাবমিট';
+    }
+});
+
+// Profile Dropdown Toggle/Original Help Link Handler
+profileArea.addEventListener('click', (e) => {
+    // If not logged in, execute original help link logic
+    if (!CURRENT_USER) {
+        window.location.href = "https://wa.me/8801799563159"; // Original help link
+        return;
+    }
+    
+    // Logged in: toggle profile dropdown
+    profileDropdown.classList.toggle('hidden');
+    e.stopPropagation(); // Prevent document click from closing it immediately
+});
+
+// Close dropdown when clicking anywhere else
+document.addEventListener('click', (e) => {
+    if (!profileDropdown.classList.contains('hidden') && !profileArea.contains(e.target) && !profileDropdown.contains(e.target)) {
+        profileDropdown.classList.add('hidden');
+    }
+});
+
+
+// Logout Handler
+logoutBtn.addEventListener('click', () => {
+    clearSession();
+    profileDropdown.classList.add('hidden');
+});
+
+/*************************
 State
 *************************/
 let ACCOUNTS = {}; // {accountNo: { Balance: number, ... }}
@@ -132,7 +441,7 @@ function getTotalBalance(){
 // ⭐ Dashboard State
 let DASHBOARD_STATE = {
     todayTxnCount: 0, todayTxnAmount: 0,
-    yesterdayTxnCount: 0, yesterdayTxnAmount: 0,
+    yesterdayTxnCount: 0, yesterdayTxnCount: 0,
     last15TxnCount: 0, last15TxnAmount: 0,
     monthlyTxnCount: 0, monthlyTxnAmount: 0,
     monthlyCashIn: 0,
@@ -164,9 +473,9 @@ $$('.nav .nbtn').forEach(b=>b.classList.remove('active'));
 function showTab(tab){
 hideAllSections();
 (sections[tab]||[]).forEach(id=>$(id).classList.remove('hidden'));
-if (tab==='home') $('#navHome').classList.add('active');
-if (tab==='send') $('#navSend').classList.add('active');
-if (tab==='txns') $('#navTxns').classList.add('active');
+if (tab==='home') $('#navHome')?.classList.add('active');
+if (tab==='send') $('#navSend')?.classList.add('active');
+if (tab==='txns') $('#navTxns')?.classList.add('active');
 // special: when opening send or txns, ensure data up-to-date
 if (tab==='send') rebuildSendRowsIfEmpty();
 if (tab==='alltxns') loadAllAggregateTransactions();
@@ -174,16 +483,16 @@ if (tab==='txns') loadAllTransactions();
 if (tab==='home') loadDashboardData(); // হোম ট্যাবে আসলে ড্যাশবোর্ড লোড হবে
 }
 
-$('#navHome').addEventListener('click', ()=>showTab('home'));
-$('#navSend').addEventListener('click', ()=>showTab('send'));
-$('#navTxns').addEventListener('click', ()=>showTab('txns'));
+$('#navHome')?.addEventListener('click', ()=>showTab('home'));
+$('#navSend')?.addEventListener('click', ()=>showTab('send'));
+$('#navTxns')?.addEventListener('click', ()=>showTab('txns'));
 
-$('#btnAllTxns').addEventListener('click', ()=>{
+$('#btnAllTxns')?.addEventListener('click', ()=>{
 showTab('alltxns');
 });
 
 // 'পেছনে যান' বাটনের কার্যকারিতা
-$('#backHomeBtn').addEventListener('click', ()=>{
+$('#backHomeBtn')?.addEventListener('click', ()=>{
 // সকল ইনপুট ও ডিসপ্লে ক্লিয়ার
 $('#sendRows').innerHTML='';
 updateServiceAndTotals();
@@ -193,13 +502,15 @@ notify($('#sendMsg'), '');
 showTab('home');
 // 'পাঠান' বাটন সচল করা হলো
 const btn = $('#sendNowBtn');
-btn.disabled = false;
-btn.innerHTML = btn.dataset.orig || 'পাঠান';
+if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = btn.dataset.orig || 'পাঠান';
+}
 });
 
 // ক্যাশ ইন/আউট হিস্টরি থেকে ড্যাশবোর্ডে ফেরা
-$('#backToDashboardCashIn').addEventListener('click', ()=>showTab('home'));
-$('#backToDashboardCashOut').addEventListener('click', ()=>showTab('home'));
+$('#backToDashboardCashIn')?.addEventListener('click', ()=>showTab('home'));
+$('#backToDashboardCashOut')?.addEventListener('click', ()=>showTab('home'));
 
 /*************************
 
@@ -217,7 +528,9 @@ async function loadRates() {
         console.error("Error loading rates:", e);
         RATES = { bdt: 0, perak_bdt: 0 };
     }
-    renderBranchRates();
+    if (!mainAppEl.classList.contains('hidden')) {
+        renderBranchRates();
+    }
 }
 
 // রেন্ডার করার জন্য নতুন ফাংশন
@@ -227,6 +540,8 @@ function renderBranchRates(){
 
     const jBtn = $('#branchJohor');
     const pBtn = $('#branchPerak');
+
+    if (!jBtn || !pBtn) return; // Skip if send section is not yet rendered or visible
 
     jBtn.textContent = `Johor- ${johorRate.toFixed(2)}৳`;
     jBtn.dataset.rate = johorRate;
@@ -275,7 +590,7 @@ function handleBranchSelection(e) {
         updateServiceAndTotals(); // ডিসপ্লে আপডেট করার জন্য
     }
 }
-$('#branchSelection').addEventListener('click', handleBranchSelection);
+$('#branchSelection')?.addEventListener('click', handleBranchSelection);
 
 
 // সার্ভিস নির্বাচন হ্যান্ডলার
@@ -286,7 +601,7 @@ function handleServiceSelection(e) {
     $('#targetNumberLabel').textContent = `${SELECTED_SERVICE} নাম্বার দিন`;
     buildDisplay();
 }
-$('#serviceSelection').addEventListener('change', handleServiceSelection);
+$('#serviceSelection')?.addEventListener('change', handleServiceSelection);
 
 /*************************
 
@@ -304,12 +619,13 @@ ACCOUNT_LIST = Object.keys(data).sort();
 renderAccounts();
 updateTotalsOnHome();
 
-// NEW: Load Rates at startup
+// NEW: Load Rates at startup (already loaded in initApp but called here for completeness)
 await loadRates(); 
 }
 
 function renderAccounts(){
 const listEl = $('#accountsList');
+if (!listEl) return;
 listEl.innerHTML = '';
 let total = 0;
 ACCOUNT_LIST.forEach(acc=>{
@@ -382,6 +698,9 @@ async function loadDashboardData(){
 
 // ড্যাশবোর্ড ডিসপ্লে আপডেট
 function updateDashboardDisplay(){
+    
+    if(!$('#section-dashboard')) return; // Skip if not on home tab
+
     const today = new Date();
     // আজকের তারিখ
     const todayDmy = epochToDmy(today.getTime());
@@ -498,6 +817,7 @@ function updateDashboardDisplay(){
 // ⭐ ক্যাশ ইন/আউট হিস্টরি রেন্ডারিং
 function renderCashHistory(type, rows) {
     const tbody = $(`#${type === 'cash' ? 'cashInTable' : 'cashOutTable'} tbody`);
+    if (!tbody) return;
     tbody.innerHTML = '';
     rows.forEach(r => {
         const tr = document.createElement('tr');
@@ -507,26 +827,26 @@ function renderCashHistory(type, rows) {
 }
 
 // ⭐ ক্যাশ ইন/আউট ডিসপ্লে ক্লিক হ্যান্ডলার
-$('#cashin-amount-container').addEventListener('click', ()=>{
+$('#cashin-amount-container')?.addEventListener('click', ()=>{
     renderCashHistory('cash', ALL_CASH_IN); // সব ডেটা দেখাবে
     showTab('cashin');
 });
-$('#cashout-amount-container').addEventListener('click', ()=>{
+$('#cashout-amount-container')?.addEventListener('click', ()=>{
     renderCashHistory('cashout', ALL_CASH_OUT); // সব ডেটা দেখাবে
     showTab('cashout');
 });
 
 // ⭐ ক্যাশ ইন মডাল লজিক
-$('#addCashInBtn').addEventListener('click', ()=>{
+$('#addCashInBtn')?.addEventListener('click', ()=>{
     $('#cashInModal').classList.remove('hidden');
     $('#cashInDate').value = todayStr();
     $('#cashInAmount').value = '';
     $('#cashInNote').value = '';
     notify($('#cashInMsg'), '');
 });
-$('#closeCashInModal').addEventListener('click', ()=> $('#cashInModal').classList.add('hidden'));
+$('#closeCashInModal')?.addEventListener('click', ()=> $('#cashInModal').classList.add('hidden'));
 
-$('#saveCashInBtn').addEventListener('click', async ()=>{
+$('#saveCashInBtn')?.addEventListener('click', async ()=>{
     const amount = Number($('#cashInAmount').value || 0);
     const date = $('#cashInDate').value?.trim();
     const note = $('#cashInNote').value?.trim() || 'কোন নোট নেই';
@@ -553,16 +873,16 @@ $('#saveCashInBtn').addEventListener('click', async ()=>{
 });
 
 // ⭐ ক্যাশ আউট মডাল লজিক
-$('#addCashOutBtn').addEventListener('click', ()=>{
+$('#addCashOutBtn')?.addEventListener('click', ()=>{
     $('#cashOutModal').classList.remove('hidden');
     $('#cashOutDate').value = todayStr();
     $('#cashOutAmount').value = '';
     $('#cashOutNote').value = '';
     notify($('#cashOutMsg'), '');
 });
-$('#closeCashOutModal').addEventListener('click', ()=> $('#cashOutModal').classList.add('hidden'));
+$('#closeCashOutModal')?.addEventListener('click', ()=> $('#cashOutModal').classList.add('hidden'));
 
-$('#saveCashOutBtn').addEventListener('click', async ()=>{
+$('#saveCashOutBtn')?.addEventListener('click', async ()=>{
     const amount = Number($('#cashOutAmount').value || 0);
     const date = $('#cashOutDate').value?.trim();
     const note = $('#cashOutNote').value?.trim() || 'কোন নোট নেই';
@@ -595,7 +915,7 @@ SEND MONEY: dynamic rows
 const sendRowsEl = $('#sendRows');
 
 function rebuildSendRowsIfEmpty(){
-if (sendRowsEl.children.length===0) addSendRow();
+if (sendRowsEl && sendRowsEl.children.length===0) addSendRow();
 buildDisplay();
 }
 
@@ -626,7 +946,7 @@ updateServiceAndTotals();
 buildDisplay();
 });
 
-sendRowsEl.appendChild(wrap);
+sendRowsEl?.appendChild(wrap);
 updateRowAvailable(wrap);
 updateServiceAndTotals();
 buildDisplay();
@@ -653,7 +973,7 @@ return true;
 }
 
 function getValidSendRows(){
-const rows = Array.from(sendRowsEl.children);
+const rows = Array.from(sendRowsEl?.children || []);
 const valid = [];
 for (const r of rows){
 const acc = r.querySelector('.sr-account').value;
@@ -667,14 +987,18 @@ return valid;
 // পরিবর্তিত: সার্ভিস চার্জ ইনপুট ফিল্ড থেকে মান নেবে
 function updateServiceAndTotals(){
     const rows = getValidSendRows();
+    const serviceChargeEl = $('#serviceCharge');
+    const totalAmountEl = $('#totalAmount');
+    if (!serviceChargeEl || !totalAmountEl) return;
+    
     // সার্ভিস চার্জ ইনপুট ফিল্ড থেকে মান নেওয়া হচ্ছে
-    const manualCharge = Number($('#serviceCharge').value) || 0;
+    const manualCharge = Number(serviceChargeEl.value) || 0;
     
     // মোট এমাউন্ট (চার্জ ছাড়া)
     const totalAmount = rows.reduce((s,r)=>s+Number(r.amount||0), 0);
     
-    $('#serviceCharge').value = manualCharge;
-    $('#totalAmount').value = totalAmount;
+    serviceChargeEl.value = manualCharge;
+    totalAmountEl.value = totalAmount;
 
     // টোটাল অ্যামাউন্ট বা চার্জ পরিবর্তন হলে ডিসপ্লে আপডেট করা
     buildDisplay(); 
@@ -682,7 +1006,7 @@ function updateServiceAndTotals(){
 
 // পরিবর্তিত: SELECTED_SERVICE ব্যবহার করা হয়েছে
 function buildDisplay(){
-    const target = $('#targetNumber').value?.trim();
+    const target = $('#targetNumber')?.value?.trim();
     const rows = getValidSendRows();
     const total = rows.reduce((s,r)=>s+Number(r.amount||0), 0);
     let lines = [];
@@ -694,15 +1018,18 @@ function buildDisplay(){
     rows.forEach(r=>{
     lines.push(`Pin ${r.account} টাকা ${r.amount}`);
     });
-    $('#displayBox').textContent = lines.join('\n');
+    const displayBox = $('#displayBox');
+    if (displayBox) {
+        displayBox.textContent = lines.join('\n');
+    }
 }
 
-$('#addRowBtn').addEventListener('click', ()=> addSendRow());
-$('#targetNumber').addEventListener('input', buildDisplay);
+$('#addRowBtn')?.addEventListener('click', ()=> addSendRow());
+$('#targetNumber')?.addEventListener('input', buildDisplay);
 // নতুন ইভেন্ট লিসেনার: সার্ভিস চার্জ পরিবর্তন হলে টোটাল আপডেট করা
-$('#serviceCharge').addEventListener('input', updateServiceAndTotals); 
+$('#serviceCharge')?.addEventListener('input', updateServiceAndTotals); 
 
-$('#copyDisplayBtn').addEventListener('click', async ()=>{
+$('#copyDisplayBtn')?.addEventListener('click', async ()=>{
 try { 
     await navigator.clipboard.writeText($('#displayBox').textContent || '');
     notify($('#sendMsg'), 'কপি হয়েছে ✅', 'success');
@@ -737,6 +1064,8 @@ function calculateRmCharges(rmAmountBase, branchKey) {
 let isSending = false;
 async function setSendLoading(active){
 const btn = $('#sendNowBtn');
+if (!btn) return;
+
 if (active){
 isSending = true;
 btn.dataset.orig = btn.innerHTML;
@@ -751,10 +1080,10 @@ btn.disabled = true;
 }
 
 // SEND ACTION
-$('#sendNowBtn').addEventListener('click', async ()=>{
+$('#sendNowBtn')?.addEventListener('click', async ()=>{
 if (isSending) return; // ignore multi-tap
 notify($('#sendMsg'), '', '');
-const target = $('#targetNumber').value?.trim();
+const target = $('#targetNumber')?.value?.trim();
 const rows = getValidSendRows();
 if (!target) { notify($('#sendMsg'), 'রিসিভার নাম্বার দিন', 'error'); return; }
 if (rows.length===0) { notify($('#sendMsg'), 'কমপক্ষে একটি একাউন্ট ও এমাউন্ট দিন', 'error'); return; }
@@ -772,10 +1101,10 @@ try {
 const dateStr = todayStr();
 const ts = Date.now();
 // সার্ভিস চার্জ ইনপুট ফিল্ড থেকে নেওয়া হচ্ছে
-const manualCharge = Number($('#serviceCharge').value) || 0; 
+const manualCharge = Number($('#serviceCharge')?.value) || 0; 
 let totalCharge = manualCharge; // মোট চার্জ এখন ম্যানুয়াল চার্জের সমান
 let totalAmount = 0; // মোট পাঠানো এমাউন্ট (চার্জ ছাড়া)
-const displayText = $('#displayBox').textContent || '';
+const displayText = $('#displayBox')?.textContent || '';
 
 // 1. আগের মোট ব্যালেন্স সংরক্ষণ
 const previousTotalBalance = getTotalBalance();
@@ -851,10 +1180,10 @@ await set(singleTxRef, {
 
 
 // --- NEW: RM Calculation and All_Transaction Saving ---
-const selectedBranchButton = $('#branchSelection').querySelector('.primary');
-const selectedRate = Number(selectedBranchButton.dataset.rate) || 0;
-const branchName = selectedBranchButton.textContent.split('-')[0].trim();
-const branchKey = selectedBranchButton.dataset.branch; // Get branch key
+const selectedBranchButton = $('#branchSelection')?.querySelector('.primary');
+const selectedRate = Number(selectedBranchButton?.dataset?.rate) || 0;
+const branchName = selectedBranchButton?.textContent.split('-')[0].trim();
+const branchKey = selectedBranchButton?.dataset?.branch; // Get branch key
 
 let chargerm = 0;
 let totalrm = 0;
@@ -941,13 +1270,19 @@ all.sort((a,b)=> (b.timestamp)-(a.timestamp));
 window.ALL_TXNS = all;
 
 const dates = getAutoFilterDates();
-$('#dateFrom').value = dates.fromYmd;
-$('#dateTo').value = dates.toYmd;
+const dateFromEl = $('#dateFrom');
+const dateToEl = $('#dateTo');
+
+if (dateFromEl) dateFromEl.value = dates.fromYmd;
+if (dateToEl) dateToEl.value = dates.toYmd;
+
 applyFilters();
 }
 
 function renderTxnTable(rows){
 const tbody = $('#txnTable tbody');
+if (!tbody) return;
+
 tbody.innerHTML = '';
 rows.forEach(r=>{
 const tr = document.createElement('tr');
@@ -962,9 +1297,9 @@ $('#summary').textContent = `মোট: ${rows.length} টি | টাকা: ${
 }
 
 function applyFilters(){
-const q = ($('#searchBox').value||'').toLowerCase();
-const f = ymdToEpoch($('#dateFrom').value);
-const t = ymdToEpoch($('#dateTo').value);
+const q = ($('#searchBox')?.value||'').toLowerCase();
+const f = ymdToEpoch($('#dateFrom')?.value);
+const t = ymdToEpoch($('#dateTo')?.value);
 let rows = (window.ALL_TXNS||[]).slice();
 
 if (f) rows = rows.filter(x=> x.timestamp >= f);
@@ -977,8 +1312,8 @@ if (q) rows = rows.filter(x=> `${x.account}`.toLowerCase().includes(q)
 renderTxnTable(rows);
 }
 
-$('#applyFilterBtn').addEventListener('click', applyFilters);
-$('#searchBox').addEventListener('input', applyFilters);
+$('#applyFilterBtn')?.addEventListener('click', applyFilters);
+$('#searchBox')?.addEventListener('input', applyFilters);
 
 /*************************
 
@@ -1011,14 +1346,20 @@ all.sort((a,b)=> (b.timestamp)-(a.timestamp));
 window.ALL_AGG = all;
 
 const dates = getAutoFilterDates();
-$('#allDateFrom').value = dates.fromYmd;
-$('#allDateTo').value = dates.toYmd;
+const allDateFromEl = $('#allDateFrom');
+const allDateToEl = $('#allDateTo');
+
+if (allDateFromEl) allDateFromEl.value = dates.fromYmd;
+if (allDateToEl) allDateToEl.value = dates.toYmd;
+
 applyAllFilters();
 }
 
 // renderAllTxnTable
 function renderAllTxnTable(rows){
 const tbody = $('#allTxnTable tbody');
+if (!tbody) return;
+
 tbody.innerHTML = '';
 
 let sumTotalDeductedAll = 0;
@@ -1059,7 +1400,7 @@ rows.forEach(r=>{
 
     // DOM এ যুক্ত হওয়ার পর ইভেন্ট লিসেনার যোগ করা হচ্ছে
     const copyButton = tr.querySelector('.copy-btn');
-    copyButton.addEventListener('click', async (e) => {
+    copyButton?.addEventListener('click', async (e) => {
         const textToCopy = e.currentTarget.closest('.display-cell').getAttribute('data-text');
 
         try {
@@ -1088,10 +1429,10 @@ $('#allSummary').innerHTML = `
 }
 
 function applyAllFilters(){
-    const q = ($('#allSearchBox').value||'').toLowerCase();
-    const f = ymdToEpoch($('#allDateFrom').value);
-    const t = ymdToEpoch($('#allDateTo').value);
-    const branch = $('#branchFilter').value; // <-- GET BRANCH FILTER VALUE
+    const q = ($('#allSearchBox')?.value||'').toLowerCase();
+    const f = ymdToEpoch($('#allDateFrom')?.value);
+    const t = ymdToEpoch($('#allDateTo')?.value);
+    const branch = $('#branchFilter')?.value; // <-- GET BRANCH FILTER VALUE
     let rows = (window.ALL_AGG||[]).slice();
 
     if (f) rows = rows.filter(x=> x.timestamp >= f);
@@ -1105,69 +1446,65 @@ function applyAllFilters(){
     renderAllTxnTable(rows);
 }
 
-$('#applyAllFilterBtn').addEventListener('click', applyAllFilters);
-$('#allSearchBox').addEventListener('input', applyAllFilters);
-$('#branchFilter').addEventListener('change', applyAllFilters); // <-- ADDED EVENT LISTENER
+$('#applyAllFilterBtn')?.addEventListener('click', applyAllFilters);
+$('#allSearchBox')?.addEventListener('input', applyAllFilters);
+$('#branchFilter')?.addEventListener('change', applyAllFilters); // <-- ADDED EVENT LISTENER
 
 /*************************
 
 Settings (UNMODIFIED LOGIC)
 *************************/
-$('#btnSettings').addEventListener('click', ()=>{
+$('#btnSettings')?.addEventListener('click', ()=>{
 $('#settingsPanel').classList.toggle('hidden');
 });
-$('#closeSettings').addEventListener('click', ()=> $('#settingsPanel').classList.add('hidden'));
-$('#themeLight').addEventListener('click', ()=>{ document.body.classList.add('light'); $('#settingsPanel').classList.add('hidden'); });
-$('#themeDefault').addEventListener('click', ()=>{ document.body.classList.remove('light'); $('#settingsPanel').classList.add('hidden'); });
+$('#closeSettings')?.addEventListener('click', ()=> $('#settingsPanel').classList.add('hidden'));
+$('#themeLight')?.addEventListener('click', ()=>{ document.body.classList.add('light'); $('#settingsPanel').classList.add('hidden'); });
+$('#themeDefault')?.addEventListener('click', ()=>{ document.body.classList.remove('light'); $('#settingsPanel').classList.add('hidden'); });
 
 /*************************
 
 Init
 *************************/
-$('#addRowBtn').addEventListener('click', ()=>{}); // placeholder to keep order
+$('#addRowBtn')?.addEventListener('click', ()=>{}); // placeholder to keep order
 
-await loadAccounts();
-// ⭐ প্রাথমিক অবস্থায় ড্যাশবোর্ড ডেটা লোড করা
-await loadDashboardData(); 
-showTab('home');
+async function initApp() {
+    // 1. Initial setup and login check
+    await loadRates();
+    await checkAuthStatus();
+    
+    // 2. Event listeners for app content (only active when logged in)
+    document.getElementById('addbalance')?.addEventListener('click', function () {
+        window.location.href = 'wallet.html';
+    });
 
+    document.getElementById('sim')?.addEventListener('click', function () {
+        window.location.href = 'sim.html';
+    });
 
-document.getElementById("help").addEventListener("click", function() {
-// + না দিয়ে দেশ কোড সহ নম্বর দিন
-window.location.href = "https://wa.me/8801799563159";
-// চাইলে মেসেজও যোগ করতে পারেন:
-// window.location.href = "https://wa.me/8801799563159?text=" + encodeURIComponent("হ্যালো, হেল্প লাগবে");
-});
+    // 3. Live Listeners
+    const mainAppEl = $('#main-app');
 
-document.getElementById('addbalance').addEventListener('click', function () {
-window.location.href = 'wallet.html';
-});
+    onValue(ref(db, 'cash'), (snapshot) => {
+        if (snapshot.exists() && !mainAppEl.classList.contains('hidden')) {
+            loadDashboardData();
+        }
+    });
 
-document.getElementById('sim').addEventListener('click', function () {
-window.location.href = 'sim.html';
-});
+    onValue(ref(db, 'cashout'), (snapshot) => {
+        if (snapshot.exists() && !mainAppEl.classList.contains('hidden')) {
+            loadDashboardData();
+        }
+    });
 
-// ⭐ Firebase-এর 'cash' এবং 'cashout' ফোল্ডারে লাইভ লিসেনার যুক্ত করা হলো
-onValue(ref(db, 'cash'), (snapshot) => {
-    if (snapshot.exists()) {
-        loadDashboardData();
-    }
-});
+    onValue(ref(db, 'single_transaction'), (snapshot) => {
+        if (snapshot.exists() && !mainAppEl.classList.contains('hidden')) {
+            loadDashboardData();
+        }
+    });
 
-onValue(ref(db, 'cashout'), (snapshot) => {
-    if (snapshot.exists()) {
-        loadDashboardData();
-    }
-});
+    onValue(ref(db, 'rate'), (snapshot) => {
+        loadRates();
+    });
+}
 
-// ⭐ Firebase-এর 'single_transaction' ফোল্ডারে লাইভ লিসেনার যুক্ত করা হলো
-onValue(ref(db, 'single_transaction'), (snapshot) => {
-    if (snapshot.exists()) {
-        loadDashboardData();
-    }
-});
-
-// ⭐ NEW: Firebase-এর 'rate' ফোল্ডারে লাইভ লিসেনার যুক্ত করা হলো
-onValue(ref(db, 'rate'), (snapshot) => {
-    loadRates();
-});
+initApp();
